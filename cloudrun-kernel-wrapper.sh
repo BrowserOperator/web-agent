@@ -72,12 +72,12 @@ echo "[cloudrun-kernel] Starting D-Bus..."
 supervisorctl -c /etc/supervisor/supervisord-cloudrun.conf start dbus
 echo "[cloudrun-kernel] Waiting for D-Bus system bus..."
 for i in {1..50}; do
-  if [ -S /run/dbus/system_bus_socket ]; then
+  if [ -S /tmp/dbus/system_bus_socket ]; then
     break
   fi
   sleep 0.2
 done
-export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/dbus/system_bus_socket"
+export DBUS_SESSION_BUS_ADDRESS="unix:path=/tmp/dbus/system_bus_socket"
 
 echo "[cloudrun-kernel] Starting Chromium..."
 supervisorctl -c /etc/supervisor/supervisord-cloudrun.conf start chromium
