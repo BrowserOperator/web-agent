@@ -14,6 +14,15 @@ CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-}"
 if [[ -f /chromium/flags ]]; then
   CHROMIUM_FLAGS="$CHROMIUM_FLAGS $(cat /chromium/flags)"
 fi
+
+# Add proxy configuration if enabled
+PROXY_ENABLED="${PROXY_ENABLED:-true}"
+if [[ "$PROXY_ENABLED" == "true" ]]; then
+  PROXY_SERVER="${PROXY_SERVER:-http://127.0.0.1:3128}"
+  CHROMIUM_FLAGS="$CHROMIUM_FLAGS --proxy-server=$PROXY_SERVER"
+  echo "Proxy enabled: $PROXY_SERVER"
+fi
+
 echo "CHROMIUM_FLAGS: $CHROMIUM_FLAGS"
 
 # Always use display :1 and point DBus to the system bus socket

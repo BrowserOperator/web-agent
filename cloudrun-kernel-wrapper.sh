@@ -79,6 +79,21 @@ for i in {1..50}; do
 done
 export DBUS_SESSION_BUS_ADDRESS="unix:path=/tmp/dbus/system_bus_socket"
 
+# Start Squid proxy if enabled
+PROXY_ENABLED="${PROXY_ENABLED:-true}"
+if [[ "$PROXY_ENABLED" == "true" ]]; then
+  echo "[cloudrun-kernel] Starting Squid proxy..."
+  supervisorctl -c /etc/supervisor/supervisord-cloudrun.conf start squid
+  echo "[cloudrun-kernel] Waiting for Squid proxy on port 3128..."
+  for i in {1..30}; do
+    if nc -z 127.0.0.1 3128 2>/dev/null; then
+      break
+    fi
+    sleep 0.5
+  done
+  echo "[cloudrun-kernel] Squid proxy ready"
+fi
+
 echo "[cloudrun-kernel] Starting Chromium..."
 supervisorctl -c /etc/supervisor/supervisord-cloudrun.conf start chromium
 echo "[cloudrun-kernel] Waiting for Chromium on $INTERNAL_PORT..."

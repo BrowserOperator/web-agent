@@ -106,7 +106,9 @@ RUN apt-get update && \
     xdg-utils \
     libvulkan1 \
     fonts-liberation \
-    unzip && \
+    unzip \
+    # Add Squid proxy server for upstream proxy forwarding
+    squid && \
     apt-get clean
 
 # install ffmpeg manually
@@ -194,13 +196,17 @@ COPY --from=server-builder /out/kernel-images-api /usr/local/bin/kernel-images-a
 # Cloud Run specific: nginx configuration and startup script
 COPY nginx.conf /etc/nginx/nginx.conf
 
+# Squid proxy configuration for upstream proxy forwarding
+COPY squid.conf /etc/squid/squid.conf
+
 # Create directories for non-root execution
 RUN mkdir -p /tmp/nginx_client_temp /tmp/nginx_proxy_temp /tmp/nginx_fastcgi_temp \
     /tmp/nginx_uwsgi_temp /tmp/nginx_scgi_temp \
     /var/log/supervisord/chromium /var/log/supervisord/neko /var/log/supervisord/xorg \
     /var/log/supervisord/dbus /var/log/supervisord/kernel-images-api /var/log/supervisord/mutter \
-    /tmp/supervisord /tmp/dbus && \
-    chown -R kernel:kernel /tmp/nginx_* /var/log/supervisord /tmp/supervisord /tmp/dbus
+    /var/log/supervisord/squid /tmp/supervisord /tmp/dbus \
+    /var/spool/squid && \
+    chown -R kernel:kernel /tmp/nginx_* /var/log/supervisord /tmp/supervisord /tmp/dbus /var/spool/squid
 
 # Create chromium flags file with Cloud Run optimized settings
 RUN mkdir -p /chromium && \

@@ -27,8 +27,7 @@ spec:
       serviceAccountName: kernel-browser-sa
       containers:
       - name: kernel-browser
-        # This will be set during deployment
-        image: gcr.io/browseroperator/kernel-browser:latest
+        image: gcr.io/PROJECT_ID/kernel-browser:latest
         ports:
         - name: http1
           containerPort: 8080
@@ -66,6 +65,11 @@ spec:
           value: "8081"
         - name: NEKO_WEBRTC_UDPPORT  
           value: "8082"
+        # Proxy configuration (Oxylabs ISP proxy)
+        - name: PROXY_ENABLED
+          value: "true"
+        - name: PROXY_SERVER
+          value: "http://127.0.0.1:3128"
         # Optional: Google Cloud Storage bucket for recordings
         - name: GCS_BUCKET
           value: "kernel-browser-recordings"
