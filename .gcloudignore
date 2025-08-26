@@ -1,0 +1,94 @@
+# Git files
+.git/
+.gitignore
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+.npm/
+.yarn/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+*.log
+*.tmp
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation
+*.md
+docs/
+
+# CI/CD (keep only the ones we need)
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Local development
+.env.local
+.env.development
+*.local
+
+# Temporary files
+*.bak
+*.orig
+*.rej
+
+# Cache directories
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+
+# Coverage reports
+coverage/
+*.lcov
+.nyc_output/
+
+# Keep these files for Cloud Build
+!cloudbuild.yaml
+!Dockerfile.cloudrun
+!nginx.conf
+!cloudrun-wrapper.sh
+!service.yaml
+!deploy.sh
+
+# Exclude large files that aren't needed
+*.zip
+*.tar.gz
+*.tar
+*.7z
+
+# Exclude local recordings and test files
+recordings/
+*.mp4
+*.avi
+*.mov

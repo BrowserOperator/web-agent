@@ -1,0 +1,3 @@
+[submodule "kernel-images"]
+	path = kernel-images
+	url = https://github.com/onkernel/kernel-images.git

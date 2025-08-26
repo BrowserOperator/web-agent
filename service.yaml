@@ -1,0 +1,78 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: kernel-browser
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+spec:
+  template:
+    metadata:
+      annotations:
+        # Use second generation execution environment
+        run.googleapis.com/execution-environment: gen2
+        # Disable CPU throttling for consistent performance
+        run.googleapis.com/cpu-throttling: "false"
+        # Increase startup timeout
+        run.googleapis.com/timeout: "3600"
+        # Auto-scaling settings
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "10"
+    spec:
+      # One browser instance per container
+      containerConcurrency: 1
+      # 1 hour timeout for long browser sessions
+      timeoutSeconds: 3600
+      # Service account for GCP access
+      serviceAccountName: kernel-browser-sa
+      containers:
+      - name: kernel-browser
+        # This will be set during deployment
+        image: gcr.io/PROJECT_ID/kernel-browser:latest
+        ports:
+        - name: http1
+          containerPort: 8080
+        resources:
+          limits:
+            # 4 CPU cores for smooth browser performance
+            cpu: "4"
+            # 8GiB memory (minimum required for Chromium + services)
+            memory: "8Gi"
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+        env:
+        # Enable WebRTC for live viewing
+        - name: ENABLE_WEBRTC
+          value: "true"
+        # Run as non-root user (Cloud Run requirement)
+        - name: RUN_AS_ROOT
+          value: "false"
+        # Chrome optimizations for Cloud Run
+        - name: CHROMIUM_FLAGS
+          value: "--user-data-dir=/home/kernel/user-data --disable-dev-shm-usage --disable-gpu --start-maximized --disable-software-rasterizer --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --disable-features=VizDisplayCompositor"
+        # Display configuration
+        - name: DISPLAY_NUM
+          value: "1"
+        - name: HEIGHT
+          value: "768"
+        - name: WIDTH
+          value: "1024"
+        # TURN server configuration for WebRTC (replace with your TURN server)
+        - name: NEKO_ICESERVERS
+          value: '[{"urls": ["stun:stun.l.google.com:19302"]}]'
+        # Optional: Google Cloud Storage bucket for recordings
+        - name: GCS_BUCKET
+          value: "kernel-browser-recordings"
+        # API configuration
+        - name: KERNEL_IMAGES_API_PORT
+          value: "10001"
+        - name: KERNEL_IMAGES_API_FRAME_RATE
+          value: "10"
+        - name: KERNEL_IMAGES_API_MAX_SIZE_MB
+          value: "500"
+        - name: KERNEL_IMAGES_API_OUTPUT_DIR
+          value: "/tmp/recordings"
+  traffic:
+  - percent: 100
+    latestRevision: true
