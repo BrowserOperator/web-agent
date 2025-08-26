@@ -1,0 +1,101 @@
+# Cloud Build configuration for kernel-browser
+steps:
+  # Step 1: Verify kernel-images directory exists
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Checking kernel-images directory..."
+        ls -la kernel-images/
+        echo "Checking server directory..."
+        ls -la kernel-images/server/
+
+  # Step 2: Pull previous image for caching (ignore errors if doesn't exist)
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Attempting to pull previous image for caching..."
+        docker pull gcr.io/$PROJECT_ID/kernel-browser:latest || echo "No previous image found for caching"
+
+  # Step 3: Build the Docker image with caching (using kernel-cloud Dockerfile)
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--file'
+      - 'Dockerfile.kernel-cloud'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+      - '--tag'
+      - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+      - '.'
+    timeout: '3600s'  # Allow 1 hour for build (it's a large image)
+
+  # Step 4: Push the image to Google Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+
+  # Step 5: Update the service.yaml with the correct project ID
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        sed -i "s/PROJECT_ID/$PROJECT_ID/g" service.yaml
+        cat service.yaml
+
+  # Step 6: Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'services'
+      - 'replace'
+      - 'service.yaml'
+      - '--region=us-central1'
+      - '--quiet'
+
+  # Step 7: Update traffic to latest revision
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'services'
+      - 'update-traffic'
+      - 'kernel-browser'
+      - '--to-latest'
+      - '--region=us-central1'
+      - '--quiet'
+
+  # Step 8: Get the service URL
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'services'
+      - 'describe'
+      - 'kernel-browser'
+      - '--region=us-central1'
+      - '--format=table(status.url)'
+
+# Build timeout (allow 2 hours total)
+timeout: '7200s'
+
+# Build options
+options:
+  # Use high CPU machine for faster builds
+  machineType: 'E2_HIGHCPU_32'
+  # Allocate disk space for the large build
+  diskSizeGb: 100
+
+# Images to be pushed to Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+
+
+# Tags for organization
+tags:
+  - 'kernel-browser'
+  - 'chrome-automation'
+  - 'webrtc'
