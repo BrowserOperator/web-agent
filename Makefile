@@ -104,3 +104,61 @@ native-run: ## Run using kernel-images native script directly
 
 # Quick development workflow
 quick: init build compose-up test ## Quick setup: init + build + run + test
+
+# ============================================================================
+# Extended targets with DevTools frontend
+# ============================================================================
+
+build-extended: init ## Build extended image with DevTools frontend
+	@echo "🔨 Building extended kernel-browser with DevTools frontend..."
+	docker build -f Dockerfile.local-extended -t kernel-browser:extended .
+	@echo "✅ Extended build complete"
+
+run-extended: ## Run extended container with DevTools (interactive)
+	@echo "🚀 Starting extended kernel-browser with DevTools..."
+	./run-local-extended.sh
+
+info-extended: ## Show extended connection information
+	@echo ""
+	@echo "🌐 Extended Service Access Points:"
+	@echo "   WebRTC Client:        http://localhost:8080"
+	@echo "   Chrome DevTools:      http://localhost:9222/json"
+	@echo "   Recording API:        http://localhost:444/api"
+	@echo "   Enhanced DevTools UI: http://localhost:8001"
+	@echo "   DevTools Health:      http://localhost:8001/health"
+
+test-extended: ## Test extended service endpoints including DevTools
+	@echo "🧪 Testing extended service endpoints..."
+	@echo -n "WebRTC Client (8080): "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ || echo "Failed to connect"
+	@echo ""
+	@echo -n "Chrome DevTools (9222): "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:9222/json/version || echo "Failed to connect" 
+	@echo ""
+	@echo -n "Recording API (444): "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:444/ && echo " (404 is normal - API is running)" || echo "Failed to connect"
+	@echo ""
+	@echo -n "DevTools UI (8001): "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/ || echo "Failed to connect"
+	@echo ""
+	@echo -n "DevTools Health (8001): "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/health || echo "Failed to connect"
+	@echo ""
+	@echo "🎯 All extended services are ready! Access points:"
+	@echo "   WebRTC Client:        http://localhost:8080"
+	@echo "   Chrome DevTools:      http://localhost:9222/json"
+	@echo "   Enhanced DevTools UI: http://localhost:8001"
+
+stop-extended: ## Stop extended container
+	@echo "🛑 Stopping extended containers..."
+	docker stop kernel-browser-extended 2>/dev/null || true
+	docker rm kernel-browser-extended 2>/dev/null || true
+	@echo "✅ Extended containers stopped"
+
+clean-extended: stop-extended ## Clean up extended containers and images
+	@echo "🧹 Cleaning up extended resources..."
+	docker rmi kernel-browser:extended 2>/dev/null || true
+	@echo "✅ Extended cleanup complete"
+
+# Extended workflow
+quick-extended: init build-extended run-extended ## Quick extended setup: init + build + run with DevTools
