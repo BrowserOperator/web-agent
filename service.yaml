@@ -17,7 +17,7 @@ spec:
         run.googleapis.com/timeout: "3600"
         # Auto-scaling settings
         autoscaling.knative.dev/minScale: "1"
-        autoscaling.knative.dev/maxScale: "10"
+        autoscaling.knative.dev/maxScale: "2"
     spec:
       # Allow multiple concurrent requests (browser can handle multiple tabs/requests)
       containerConcurrency: 10
@@ -28,19 +28,19 @@ spec:
       containers:
       - name: kernel-browser
         # This will be set during deployment
-        image: gcr.io/browseroperator/kernel-browser:latest
+        image: us-docker.pkg.dev/func-241017/gcr.io/kernel-browser:latest
         ports:
         - name: http1
           containerPort: 8080
         resources:
           limits:
-            # 4 CPU cores for smooth browser performance
-            cpu: "4"
-            # 8GiB memory (minimum required for Chromium + services)
-            memory: "8Gi"
-          requests:
+            # 2 CPU cores (within quota limits)
             cpu: "2"
+            # 4GiB memory (within quota limits)
             memory: "4Gi"
+          requests:
+            cpu: "1"
+            memory: "2Gi"
         env:
         # Enable WebRTC for live viewing
         - name: ENABLE_WEBRTC

@@ -18,26 +18,26 @@ steps:
       - '-c'
       - |
         echo "Attempting to pull previous image for caching..."
-        docker pull gcr.io/$PROJECT_ID/kernel-browser:latest || echo "No previous image found for caching"
+        docker pull us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest || echo "No previous image found for caching"
 
-  # Step 3: Build the Docker image with caching (using kernel-cloud Dockerfile)
+  # Step 3: Build the Docker image with caching (using cloudrun Dockerfile)
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '--file'
-      - 'Dockerfile.kernel-cloud'
+      - 'Dockerfile.cloudrun'
       - '--cache-from'
-      - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+      - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
       - '--tag'
-      - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+      - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
       - '.'
     timeout: '3600s'  # Allow 1 hour for build (it's a large image)
 
-  # Step 4: Push the image to Google Container Registry
+  # Step 4: Push the image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+      - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
 
   # Step 5: Update the service.yaml with the correct project ID
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -89,9 +89,9 @@ options:
   # Allocate disk space for the large build
   diskSizeGb: 100
 
-# Images to be pushed to Container Registry
+# Images to be pushed to Artifact Registry
 images:
-  - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+  - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
 
 
 # Tags for organization
