@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-# Local build wrapper for kernel-images chromium-headful
+# Extended local build wrapper for kernel-browser with DevTools
 set -e -o pipefail
 
-echo "🔨 Building kernel-browser using kernel-images build system..."
+echo "🔨 Building extended kernel-browser with DevTools frontend..."
 
 # Ensure we're in the right directory
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -22,29 +22,15 @@ if [ ! -f "kernel-images/images/chromium-headful/build-docker.sh" ]; then
     exit 1
 fi
 
-# Change to kernel-images directory and build using their system
-echo "📁 Changing to kernel-images directory..."
-cd kernel-images/images/chromium-headful
+echo "🚀 Starting extended build with Docker..."
+echo "   Using: Dockerfile.local"
+echo "   Target image: kernel-browser:extended"
 
-# Make build script executable
-chmod +x build-docker.sh
+# Build using Docker with extended Dockerfile
+docker build -f Dockerfile.local -t kernel-browser:extended .
 
-# Set image name for local use
-export IMAGE="kernel-browser:local"
-export NAME="kernel-browser-local"
-
-# Set dummy UKC variables to bypass cloud requirements (we only need Docker)
-export UKC_TOKEN="dummy-token-for-local-build"
-export UKC_METRO="dummy-metro-for-local-build"
-
-echo "🚀 Starting build with kernel-images build system..."
-echo "   Image: $IMAGE"
-echo "   Bypassing UKC requirements for local Docker build..."
-
-# Run the official build script
-./build-docker.sh
-
-echo "✅ Build completed successfully!"
-echo "   Image built: $IMAGE"
+echo "✅ Extended build completed successfully!"
+echo "   Image built: kernel-browser:extended"
+echo "   Includes: Chromium + DevTools frontend + WebRTC"
 echo ""
 echo "🏃 To run locally, use: ./run-local.sh"
