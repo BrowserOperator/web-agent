@@ -146,11 +146,9 @@ RUN apt-get update && \
     # PPA req
     software-properties-common \
     # Add nginx for DevTools serving
-    nginx && \
+    nginx \
     # Userland apps
-    sudo add-apt-repository ppa:mozillateam/ppa && \
-    sudo apt-get install -y --no-install-recommends \
-    chromium-browser \
+    && apt-get install -y --no-install-recommends \
     libreoffice \
     x11-apps \
     xpdf \
