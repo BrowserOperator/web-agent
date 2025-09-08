@@ -34,6 +34,127 @@ info() {
     echo -e "ℹ️  $1"
 }
 
+# Load environment variables from .env file
+load_env_file() {
+    if [ -f .env ]; then
+        info "Loading configuration from .env file..."
+        # Export variables from .env, ignoring comments and empty lines
+        set -a
+        source <(grep -v '^#' .env | grep -v '^$')
+        set +a
+        success "Configuration loaded from .env"
+    elif [ -f .env.example ]; then
+        warning "No .env file found. Copy .env.example to .env and add your credentials"
+        info "Run: cp .env.example .env"
+    fi
+}
+
+# Validate Twilio credentials
+validate_twilio_credentials() {
+    if [ -z "${TWILIO_ACCOUNT_SID:-}" ] || [ -z "${TWILIO_AUTH_TOKEN:-}" ]; then
+        warning "Twilio credentials not found in environment"
+        echo "You can either:"
+        echo "  1. Add them to .env file (recommended)"
+        echo "  2. Enter them now (temporary)"
+        echo "  3. Skip (WebRTC may not work properly)"
+        echo
+        read -p "Enter choice [1/2/3]: " choice
+        
+        case $choice in
+            1)
+                info "Please add credentials to .env file and re-run the script"
+                exit 0
+                ;;
+            2)
+                read -p "Enter Twilio Account SID: " TWILIO_ACCOUNT_SID
+                read -s -p "Enter Twilio Auth Token: " TWILIO_AUTH_TOKEN
+                echo
+                ;;
+            3)
+                warning "Skipping Twilio configuration"
+                return 1
+                ;;
+            *)
+                error "Invalid choice"
+                ;;
+        esac
+    fi
+    
+    if [ -n "${TWILIO_ACCOUNT_SID:-}" ] && [ -n "${TWILIO_AUTH_TOKEN:-}" ]; then
+        # Basic validation of credential format
+        if [[ ! "$TWILIO_ACCOUNT_SID" =~ ^SK[a-f0-9]{32}$ ]]; then
+            warning "Twilio Account SID format looks incorrect (should start with SK and be 34 chars)"
+        fi
+        success "Twilio credentials configured"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Setup Google Secret Manager secrets
+setup_secrets() {
+    if ! validate_twilio_credentials; then
+        warning "Skipping Secret Manager setup - no Twilio credentials provided"
+        return 0
+    fi
+    
+    info "Setting up Google Secret Manager secrets..."
+    
+    # Enable Secret Manager API if not already enabled
+    info "Enabling Secret Manager API..."
+    gcloud services enable secretmanager.googleapis.com --project="$PROJECT_ID" --quiet
+    
+    # Create or update twilio-account-sid secret
+    if gcloud secrets describe twilio-account-sid --project="$PROJECT_ID" &>/dev/null; then
+        echo -n "$TWILIO_ACCOUNT_SID" | gcloud secrets versions add twilio-account-sid \
+            --data-file=- \
+            --project="$PROJECT_ID"
+        info "Updated twilio-account-sid secret"
+    else
+        echo -n "$TWILIO_ACCOUNT_SID" | gcloud secrets create twilio-account-sid \
+            --data-file=- \
+            --project="$PROJECT_ID" \
+            --replication-policy="automatic"
+        success "Created twilio-account-sid secret"
+    fi
+    
+    # Create or update twilio-auth-token secret
+    if gcloud secrets describe twilio-auth-token --project="$PROJECT_ID" &>/dev/null; then
+        echo -n "$TWILIO_AUTH_TOKEN" | gcloud secrets versions add twilio-auth-token \
+            --data-file=- \
+            --project="$PROJECT_ID"
+        info "Updated twilio-auth-token secret"
+    else
+        echo -n "$TWILIO_AUTH_TOKEN" | gcloud secrets create twilio-auth-token \
+            --data-file=- \
+            --project="$PROJECT_ID" \
+            --replication-policy="automatic"
+        success "Created twilio-auth-token secret"
+    fi
+    
+    # Grant access to service account
+    local sa_email="kernel-browser-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+    
+    info "Granting Secret Manager access to service account..."
+    gcloud secrets add-iam-policy-binding twilio-account-sid \
+        --member="serviceAccount:$sa_email" \
+        --role="roles/secretmanager.secretAccessor" \
+        --project="$PROJECT_ID" \
+        --quiet
+    
+    gcloud secrets add-iam-policy-binding twilio-auth-token \
+        --member="serviceAccount:$sa_email" \
+        --role="roles/secretmanager.secretAccessor" \
+        --project="$PROJECT_ID" \
+        --quiet
+    
+    # Set flag to use secrets-enabled service.yaml
+    export USE_SECRETS=true
+    
+    success "Secret Manager configured with Twilio credentials"
+}
+
 # Check prerequisites
 check_prerequisites() {
     info "Checking prerequisites..."
@@ -85,6 +206,7 @@ enable_apis() {
         "containerregistry.googleapis.com"
         "compute.googleapis.com"
         "storage.googleapis.com"
+        "secretmanager.googleapis.com"
     )
     
     for api in "${apis[@]}"; do
@@ -175,16 +297,29 @@ deploy_local() {
     
     info "Deploying to Cloud Run..."
     
-    # Update service.yaml with project ID and image
-    sed -i.bak "s/PROJECT_ID/$PROJECT_ID/g" service.yaml
-    sed -i.bak "s|gcr.io/PROJECT_ID/kernel-browser:latest|$image_name|g" service.yaml
+    # Choose appropriate service.yaml based on secrets availability
+    local service_file="service.yaml"
+    if [ "${USE_SECRETS:-false}" = "true" ]; then
+        if gcloud secrets describe twilio-account-sid --project="$PROJECT_ID" &>/dev/null && \
+           gcloud secrets describe twilio-auth-token --project="$PROJECT_ID" &>/dev/null; then
+            service_file="service-secrets.yaml"
+            info "Using service-secrets.yaml with Secret Manager references"
+        else
+            warning "Secrets not found, falling back to standard service.yaml"
+        fi
+    fi
     
-    gcloud run services replace service.yaml \
+    # Update service file with project ID and image
+    cp "$service_file" "${service_file}.tmp"
+    sed -i.bak "s/PROJECT_ID/$PROJECT_ID/g" "${service_file}.tmp"
+    sed -i.bak "s|us-docker.pkg.dev/func-241017/gcr.io/kernel-browser:latest|$image_name|g" "${service_file}.tmp"
+    
+    gcloud run services replace "${service_file}.tmp" \
         --region="$REGION" \
         --project="$PROJECT_ID"
     
-    # Restore original service.yaml
-    mv service.yaml.bak service.yaml
+    # Clean up temporary files
+    rm -f "${service_file}.tmp" "${service_file}.tmp.bak"
     
     success "Local build and deployment completed"
 }
@@ -255,9 +390,11 @@ main() {
     done
     
     check_prerequisites
+    load_env_file
     setup_project
     enable_apis
     create_service_account
+    setup_secrets
     update_submodules
     
     if [ "${LOCAL_BUILD:-false}" = "true" ]; then

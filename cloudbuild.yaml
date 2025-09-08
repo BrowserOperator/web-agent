@@ -28,6 +28,8 @@ steps:
       - 'Dockerfile.cloudrun'
       - '--cache-from'
       - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
+      - '--build-arg'
+      - 'CACHE_BUST=$BUILD_ID'
       - '--tag'
       - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
       - '.'
@@ -39,24 +41,41 @@ steps:
       - 'push'
       - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
 
-  # Step 5: Update the service.yaml with the correct project ID
+  # Step 5: Choose appropriate service.yaml based on secrets availability
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        sed -i "s/PROJECT_ID/$PROJECT_ID/g" service.yaml
-        cat service.yaml
+        # Check if Twilio secrets exist
+        if gcloud secrets describe twilio-account-sid --project=$PROJECT_ID >/dev/null 2>&1 && \
+           gcloud secrets describe twilio-auth-token --project=$PROJECT_ID >/dev/null 2>&1; then
+          echo "Using service-secrets.yaml with Secret Manager references"
+          SERVICE_YAML="service-secrets.yaml"
+        else
+          echo "Using standard service.yaml (secrets not configured)"
+          SERVICE_YAML="service.yaml"
+        fi
+        
+        # Update project ID in the chosen service file
+        sed -i "s/PROJECT_ID/$PROJECT_ID/g" $SERVICE_YAML
+        
+        echo "Deploying with: $SERVICE_YAML"
+        cat $SERVICE_YAML
+        
+        # Save the choice for next step
+        echo $SERVICE_YAML > /workspace/service_choice.txt
 
   # Step 6: Deploy to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
     args:
-      - 'run'
-      - 'services'
-      - 'replace'
-      - 'service.yaml'
-      - '--region=us-central1'
-      - '--quiet'
+      - '-c'
+      - |
+        SERVICE_YAML=$(cat /workspace/service_choice.txt)
+        gcloud run services replace $SERVICE_YAML \
+          --region=us-central1 \
+          --quiet
 
   # Step 7: Update traffic to latest revision
   - name: 'gcr.io/cloud-builders/gcloud'

@@ -1,6 +1,9 @@
 # DevTools Frontend build stage using browser-operator-core
 FROM --platform=linux/amd64 ubuntu:22.04 AS devtools-builder
 
+# Cache bust argument to force rebuilds
+ARG CACHE_BUST
+
 # Install required packages for DevTools frontend build
 RUN apt-get update && apt-get install -y \
     curl \
@@ -50,7 +53,7 @@ RUN git checkout upstream/main
 RUN npm run build
 
 # Multi-stage build using kernel-images as base
-FROM docker.io/golang:1.23.0 AS server-builder
+FROM docker.io/golang:1.25.0 AS server-builder
 WORKDIR /workspace/server
 
 ARG TARGETOS
@@ -253,10 +256,11 @@ COPY --from=devtools-builder /workspace/devtools/devtools-frontend/out/Default/g
 # Set permissions for DevTools files
 RUN chown -R kernel:kernel /usr/share/nginx/devtools
 
-# Cloud Run specific: wrapper script only (nginx config is inline)
+# Cloud Run specific: wrapper scripts (nginx config is inline)
 # DO NOT copy nginx.conf to avoid auto-start conflicts
 COPY cloudrun-wrapper.sh /cloudrun-wrapper.sh
-RUN chmod +x /cloudrun-wrapper.sh
+COPY twilio/twilio-credential-updater.sh /twilio-credential-updater.sh
+RUN chmod +x /cloudrun-wrapper.sh /twilio-credential-updater.sh
 
 # Add essential services for neko WebRTC and Chromium
 COPY supervisor/services-cloudrun/dbus.conf /etc/supervisor/conf.d/services-cloudrun/dbus.conf
