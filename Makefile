@@ -49,11 +49,7 @@ restart: ## Restart containers
 	@$(MAKE) --no-print-directory compose-up
 
 logs: ## Show container logs
-<<<<<<< HEAD
-	docker-compose logs -f kernel-browser || docker logs -f kernel-browser-local
-=======
 	docker-compose logs -f kernel-browser || docker logs -f kernel-browser-extended
->>>>>>> main
 
 status: ## Show container status
 	@echo "Docker Compose Status:"
