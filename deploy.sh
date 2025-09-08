@@ -40,7 +40,7 @@ load_env_file() {
         info "Loading configuration from .env file..."
         # Export variables from .env, ignoring comments and empty lines
         set -a
-        source <(grep -v '^#' .env | grep -v '^$')
+        . .env
         set +a
         success "Configuration loaded from .env"
     elif [ -f .env.example ]; then
