@@ -50,21 +50,6 @@ echo ""
 
 echo "🏃 Starting extended container with kernel-images run system..."
 
-<<<<<<< HEAD
-# Backup original run-docker.sh to modify port mappings
-if [ ! -f run-docker.sh.original ]; then
-    cp run-docker.sh run-docker.sh.original
-fi
-
-# Create modified run script that adds DevTools port mapping
-cat run-docker.sh.original | \
-sed 's/docker run -it/docker run -it -p 8001:8001/' > run-docker.sh.extended
-
-chmod +x run-docker.sh.extended
-
-# Run using the modified run script with DevTools port
-./run-docker.sh.extended
-=======
 # Execute the kernel-images script setup but override the final docker run command
 # We'll replicate the essential parts here to avoid the sed hack
 
@@ -120,7 +105,6 @@ fi
 # Run with our additional DevTools port mapping
 docker rm -f "$NAME" 2>/dev/null || true
 docker run -it "${RUN_ARGS[@]}" "$IMAGE"
->>>>>>> main
 
 echo ""
 echo "🌐 Extended service should be accessible at:"
