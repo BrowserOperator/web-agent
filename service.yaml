@@ -60,12 +60,16 @@ spec:
           value: "1024"
         # Twilio API Key credentials for dynamic TURN generation
         # No Twilio credentials in fallback mode - credentials handled by twilio-credential-updater.sh
-        # Fallback TURN servers (used when Twilio credentials are not configured)
+        # TCP-only TURN servers for Cloud Run (no STUN/UDP)
         - name: NEKO_ICESERVERS
-          value: '[{"urls":["stun:stun.l.google.com:19302"]},{"urls":["turn:openrelay.metered.ca:80"],"username":"openrelayproject","credential":"openrelayproject"}]'
-        # Disable TCP multiplexing (nginx handles port 8080)
+          value: '[{"urls":["turn:openrelay.metered.ca:80?transport=tcp"],"username":"openrelayproject","credential":"openrelayproject"},{"urls":["turns:openrelay.metered.ca:443?transport=tcp"],"username":"openrelayproject","credential":"openrelayproject"}]'
+        # TCP-only WebRTC configuration for Cloud Run
         - name: NEKO_WEBRTC_TCPMUX
-          value: "0"
+          value: "0"  # Disable TCP multiplexing (nginx handles port 8080)
+        - name: NEKO_WEBRTC_ICE_LITE
+          value: "true"  # Use ICE-Lite mode for server
+        - name: NEKO_WEBRTC_ICE_SERVERS_ONLY_TURN
+          value: "true"  # Only use TURN servers, no STUN
         # Optional: Google Cloud Storage bucket for recordings
         - name: GCS_BUCKET
           value: "kernel-browser-recordings"
@@ -80,7 +84,7 @@ spec:
           value: "/tmp/recordings"
         # Force new revision  
         - name: DEPLOYMENT_VERSION
-          value: "v12-fallback-configuration"
+          value: "v13-tcp-only-fallback"
   traffic:
   - percent: 100
     latestRevision: true

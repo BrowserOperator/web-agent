@@ -19,9 +19,9 @@ ACCOUNT_SID="${TWILIO_ACCOUNT_SID}"
 AUTH_TOKEN="${TWILIO_AUTH_TOKEN}"
 
 if [ -z "$ACCOUNT_SID" ] || [ -z "$AUTH_TOKEN" ]; then
-    echo "[twilio-updater] Warning: Twilio credentials not set, using fallback TURN servers"
-    # Export fallback servers
-    export NEKO_ICESERVERS='[{"urls": ["turn:openrelay.metered.ca:80?transport=tcp"], "username": "openrelayproject", "credential": "openrelayproject"}]'
+    echo "[twilio-updater] Warning: Twilio credentials not set, using TCP-only fallback TURN servers"
+    # Export TCP-only fallback servers (no STUN for Cloud Run)
+    export NEKO_ICESERVERS='[{"urls": ["turn:openrelay.metered.ca:80?transport=tcp"], "username": "openrelayproject", "credential": "openrelayproject"}, {"urls": ["turns:openrelay.metered.ca:443?transport=tcp"], "username": "openrelayproject", "credential": "openrelayproject"}]'
     return 0 2>/dev/null || exit 0
 fi
 
@@ -34,7 +34,7 @@ response=$(curl -s -X POST \
 
 # Check if request was successful
 if echo "$response" | grep -q "ice_servers"; then
-    # Format credentials for neko
+    # Format credentials for neko (TCP-only for Cloud Run)
     ice_servers=$(echo "$response" | python3 -c "
 import json
 import sys
@@ -44,13 +44,25 @@ try:
     for server in data.get('ice_servers', []):
         if server.get('url', '').startswith('turn'):
             url = server['url']
-            if 'transport=' not in url:
-                url += '?transport=tcp'
+            # Force TCP transport for Cloud Run compatibility
+            if '?transport=' in url:
+                url = url.split('?transport=')[0]
+            url += '?transport=tcp'
             servers.append({
                 'urls': [url],
                 'username': server.get('username', ''),
                 'credential': server.get('credential', '')
             })
+            
+            # Also add TLS version for redundancy
+            tls_url = url.replace('turn:', 'turns:').replace(':3478', ':5349')
+            servers.append({
+                'urls': [tls_url],
+                'username': server.get('username', ''),
+                'credential': server.get('credential', '')
+            })
+    
+    # Remove STUN servers - only use TURN for Cloud Run
     print(json.dumps(servers))
 except:
     print('[]')
@@ -60,13 +72,13 @@ except:
         echo "[twilio-updater] Successfully retrieved TURN credentials"
         export NEKO_ICESERVERS="$ice_servers"
     else
-        echo "[twilio-updater] Failed to parse TURN credentials, using fallback"
-        export NEKO_ICESERVERS='[{"urls": ["turn:openrelay.metered.ca:80?transport=tcp"], "username": "openrelayproject", "credential": "openrelayproject"}]'
+        echo "[twilio-updater] Failed to parse TURN credentials, using TCP-only fallback"
+        export NEKO_ICESERVERS='[{"urls": ["turn:openrelay.metered.ca:80?transport=tcp"], "username": "openrelayproject", "credential": "openrelayproject"}, {"urls": ["turns:openrelay.metered.ca:443?transport=tcp"], "username": "openrelayproject", "credential": "openrelayproject"}]'
     fi
 else
-    echo "[twilio-updater] Failed to get TURN credentials from Twilio, using fallback"
+    echo "[twilio-updater] Failed to get TURN credentials from Twilio, using TCP-only fallback"
     echo "[twilio-updater] Response: ${response:0:100}..."
-    export NEKO_ICESERVERS='[{"urls": ["turn:openrelay.metered.ca:80?transport=tcp"], "username": "openrelayproject", "credential": "openrelayproject"}]'
+    export NEKO_ICESERVERS='[{"urls": ["turn:openrelay.metered.ca:80?transport=tcp"], "username": "openrelayproject", "credential": "openrelayproject"}, {"urls": ["turns:openrelay.metered.ca:443?transport=tcp"], "username": "openrelayproject", "credential": "openrelayproject"}]'
 fi
 
 echo "[twilio-updater] NEKO_ICESERVERS set to: ${NEKO_ICESERVERS:0:100}..."
