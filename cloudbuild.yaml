@@ -51,17 +51,16 @@ steps:
         if gcloud secrets describe twilio-account-sid --project=$PROJECT_ID >/dev/null 2>&1 && \
            gcloud secrets describe twilio-auth-token --project=$PROJECT_ID >/dev/null 2>&1; then
           echo "Using service-secrets.yaml with Secret Manager references"
-          SERVICE_FILE="service-secrets.yaml"
+          cp service-secrets.yaml temp-service.yaml
         else
           echo "Using standard service.yaml (secrets not configured)"
-          SERVICE_FILE="service.yaml"
+          cp service.yaml temp-service.yaml
         fi
         
         # Update project ID in the chosen service file
-        cp $SERVICE_FILE temp-service.yaml
         sed -i "s/PROJECT_ID/$PROJECT_ID/g" temp-service.yaml
         
-        echo "Deploying with: $SERVICE_FILE"
+        echo "Deploying service configuration:"
         cat temp-service.yaml
         
         # Deploy to Cloud Run
