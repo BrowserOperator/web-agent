@@ -6,18 +6,36 @@
 
 set -e
 
-# Configuration
-PROJECT_ID="${PROJECT_ID:-func-241017}"
-SERVICE_NAME="kernel-browser"
-REGION="us-central1"
+# Load environment variables from .env file if it exists
+if [ -f ../.env ]; then
+    set -a
+    . ../.env
+    set +a
+elif [ -f .env ]; then
+    set -a
+    . .env
+    set +a
+fi
 
-# Twilio credentials (set these as environment variables)
+# Configuration
+PROJECT_ID="${PROJECT_ID}"
+SERVICE_NAME="kernel-browser"
+REGION="${REGION:-us-central1}"
+
+# Twilio credentials (from environment or .env file)
 TWILIO_ACCOUNT_SID="${TWILIO_ACCOUNT_SID}"
 TWILIO_AUTH_TOKEN="${TWILIO_AUTH_TOKEN}"
 
+if [ -z "$PROJECT_ID" ]; then
+    echo "❌ Error: PROJECT_ID must be set"
+    echo "   Set it in your .env file or export as environment variable:"
+    echo "   export PROJECT_ID=your-project-id"
+    exit 1
+fi
+
 if [ -z "$TWILIO_ACCOUNT_SID" ] || [ -z "$TWILIO_AUTH_TOKEN" ]; then
     echo "❌ Error: TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be set"
-    echo "   Export them as environment variables:"
+    echo "   Set them in your .env file or export as environment variables:"
     echo "   export TWILIO_ACCOUNT_SID=your_account_sid"
     echo "   export TWILIO_AUTH_TOKEN=your_auth_token"
     exit 1

@@ -312,7 +312,7 @@ deploy_local() {
     # Update service file with project ID and image
     cp "$service_file" "${service_file}.tmp"
     sed -i.bak "s/PROJECT_ID/$PROJECT_ID/g" "${service_file}.tmp"
-    sed -i.bak "s|us-docker.pkg.dev/func-241017/gcr.io/kernel-browser:latest|$image_name|g" "${service_file}.tmp"
+    sed -i.bak "s|us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest|$image_name|g" "${service_file}.tmp"
     
     gcloud run services replace "${service_file}.tmp" \
         --region="$REGION" \
