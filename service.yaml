@@ -28,7 +28,7 @@ spec:
       containers:
       - name: kernel-browser
         # This will be set during deployment
-        image: us-docker.pkg.dev/func-241017/gcr.io/kernel-browser:latest
+        image: us-docker.pkg.dev/PROJECT_ID/gcr.io/kernel-browser:latest
         ports:
         - name: http1
           containerPort: 8080
