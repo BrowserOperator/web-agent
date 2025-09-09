@@ -1,3 +1,57 @@
+# DevTools Frontend build stage using browser-operator-core
+FROM --platform=linux/amd64 ubuntu:22.04 AS devtools-builder
+
+# Cache bust argument to force rebuilds
+ARG CACHE_BUST
+
+# Install required packages for DevTools frontend build
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    python3 \
+    python3-pip \
+    python-is-python3 \
+    wget \
+    unzip \
+    sudo \
+    ca-certificates \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 18.x
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Clone depot_tools
+RUN git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+ENV PATH="/workspace/depot_tools:${PATH}"
+ENV DEPOT_TOOLS_UPDATE=0
+
+# Follow README instructions exactly - fetching code
+RUN mkdir devtools
+WORKDIR /workspace/devtools
+RUN fetch devtools-frontend
+
+# Build steps
+WORKDIR /workspace/devtools/devtools-frontend
+
+RUN gclient sync
+RUN /workspace/depot_tools/ensure_bootstrap
+
+# Build standard DevTools first
+RUN npm run build
+
+# Add Browser Operator fork and switch to it
+RUN git remote add upstream https://github.com/BrowserOperator/browser-operator-core.git
+RUN git fetch upstream
+RUN git checkout upstream/main
+
+# Build Browser Operator version
+RUN npm run build
+
 # Multi-stage build using kernel-images as base
 FROM docker.io/golang:1.25.0 AS server-builder
 WORKDIR /workspace/server
@@ -90,6 +144,12 @@ RUN apt-get update && \
     nginx \
     # PPA req
     software-properties-common && \
+    # Disable nginx auto-start to prevent conflicts with custom config
+    systemctl disable nginx || true && \
+    systemctl mask nginx || true && \
+    # Remove default nginx config to prevent conflicts
+    rm -f /etc/nginx/sites-enabled/default && \
+    rm -f /etc/nginx/nginx.conf && \
     # Userland apps
     sudo add-apt-repository ppa:mozillateam/ppa && \
     sudo apt-get install -y --no-install-recommends \
@@ -186,19 +246,40 @@ COPY kernel-images/images/chromium-headful/supervisor/services/ /etc/supervisor/
 # Copy the kernel-images API binary
 COPY --from=server-builder /out/kernel-images-api /usr/local/bin/kernel-images-api
 
-# Cloud Run specific: nginx configuration for port proxying
-COPY nginx.conf /etc/nginx/nginx.conf
+# ============================================================================
+# DevTools Integration
+# ============================================================================
+
+# Copy DevTools static files from builder
+COPY --from=devtools-builder /workspace/devtools/devtools-frontend/out/Default/gen/front_end /usr/share/nginx/devtools
+
+# Set permissions for DevTools files
+RUN chown -R kernel:kernel /usr/share/nginx/devtools
+
+# Cloud Run specific: wrapper scripts (nginx config is inline)
+# DO NOT copy nginx.conf to avoid auto-start conflicts
 COPY cloudrun-wrapper.sh /cloudrun-wrapper.sh
-RUN chmod +x /cloudrun-wrapper.sh
+COPY twilio/twilio-credential-updater.sh /twilio-credential-updater.sh
+RUN chmod +x /cloudrun-wrapper.sh /twilio-credential-updater.sh
+
+# Add essential services for neko WebRTC and Chromium
+COPY supervisor/services-cloudrun/dbus.conf /etc/supervisor/conf.d/services-cloudrun/dbus.conf
+COPY supervisor/services-cloudrun/xorg.conf /etc/supervisor/conf.d/services-cloudrun/xorg.conf
+COPY supervisor/services-cloudrun/neko.conf /etc/supervisor/conf.d/services-cloudrun/neko.conf
+COPY supervisor/services-cloudrun/chromium.conf /etc/supervisor/conf.d/services-cloudrun/chromium.conf
+COPY supervisor/services-cloudrun/devtools-frontend.conf /etc/supervisor/conf.d/services-cloudrun/devtools-frontend.conf
 
 # Create nginx temp directories for non-root execution
 RUN mkdir -p /tmp/nginx_client_temp /tmp/nginx_proxy_temp /tmp/nginx_fastcgi_temp \
-    /tmp/nginx_uwsgi_temp /tmp/nginx_scgi_temp && \
+    /tmp/nginx_uwsgi_temp /tmp/nginx_scgi_temp \
+    /tmp/nginx_devtools_client_temp /tmp/nginx_devtools_proxy_temp /tmp/nginx_devtools_fastcgi_temp \
+    /tmp/nginx_devtools_uwsgi_temp /tmp/nginx_devtools_scgi_temp && \
     chown -R kernel:kernel /tmp/nginx_*
 
 # Create supervisor log directories
 RUN mkdir -p /var/log/supervisord/chromium /var/log/supervisord/neko /var/log/supervisord/xorg \
-    /var/log/supervisord/dbus /var/log/supervisord/kernel-images-api /var/log/supervisord/mutter && \
+    /var/log/supervisord/dbus /var/log/supervisord/kernel-images-api /var/log/supervisord/mutter \
+    /var/log/supervisord/nginx /var/log/supervisord/devtools-frontend && \
     chown -R kernel:kernel /var/log/supervisord
 
 # Create health check endpoint

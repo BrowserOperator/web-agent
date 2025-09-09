@@ -18,47 +18,57 @@ steps:
       - '-c'
       - |
         echo "Attempting to pull previous image for caching..."
-        docker pull gcr.io/$PROJECT_ID/kernel-browser:latest || echo "No previous image found for caching"
+        docker pull us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest || echo "No previous image found for caching"
 
-  # Step 3: Build the Docker image with caching (using kernel-cloud Dockerfile)
+  # Step 3: Build the Docker image with caching (using cloudrun Dockerfile)
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '--file'
-      - 'Dockerfile.kernel-cloud'
+      - 'Dockerfile.cloudrun'
       - '--cache-from'
-      - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+      - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
+      - '--build-arg'
+      - 'CACHE_BUST=$BUILD_ID'
       - '--tag'
-      - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+      - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
       - '.'
     timeout: '3600s'  # Allow 1 hour for build (it's a large image)
 
-  # Step 4: Push the image to Google Container Registry
+  # Step 4: Push the image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+      - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
 
-  # Step 5: Update the service.yaml with the correct project ID
+  # Step 5: Deploy to Cloud Run with appropriate service.yaml
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        sed -i "s/PROJECT_ID/$PROJECT_ID/g" service.yaml
-        cat service.yaml
+        # Check if Twilio secrets exist and choose appropriate service file
+        if gcloud secrets describe twilio-account-sid --project=$PROJECT_ID >/dev/null 2>&1 && \
+           gcloud secrets describe twilio-auth-token --project=$PROJECT_ID >/dev/null 2>&1; then
+          echo "Using service-secrets.yaml with Secret Manager references"
+          cp service-secrets.yaml temp-service.yaml
+        else
+          echo "Using standard service.yaml (secrets not configured)"
+          cp service.yaml temp-service.yaml
+        fi
+        
+        # Update project ID in the chosen service file
+        sed -i "s/PROJECT_ID/$PROJECT_ID/g" temp-service.yaml
+        
+        echo "Deploying service configuration:"
+        cat temp-service.yaml
+        
+        # Deploy to Cloud Run
+        gcloud run services replace temp-service.yaml \
+          --region=us-central1 \
+          --quiet
 
-  # Step 6: Deploy to Cloud Run
-  - name: 'gcr.io/cloud-builders/gcloud'
-    args:
-      - 'run'
-      - 'services'
-      - 'replace'
-      - 'service.yaml'
-      - '--region=us-central1'
-      - '--quiet'
-
-  # Step 7: Update traffic to latest revision
+  # Step 6: Update traffic to latest revision
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
@@ -69,7 +79,7 @@ steps:
       - '--region=us-central1'
       - '--quiet'
 
-  # Step 8: Get the service URL
+  # Step 7: Get the service URL
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
@@ -89,9 +99,9 @@ options:
   # Allocate disk space for the large build
   diskSizeGb: 100
 
-# Images to be pushed to Container Registry
+# Images to be pushed to Artifact Registry
 images:
-  - 'gcr.io/$PROJECT_ID/kernel-browser:latest'
+  - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
 
 
 # Tags for organization

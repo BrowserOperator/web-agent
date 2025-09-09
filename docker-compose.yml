@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  kernel-browser:
+    image: "kernel-browser:local"
+    container_name: "kernel-browser-local"
+    privileged: true
+    shm_size: 2gb
+    deploy:
+      resources:
+        limits:
+          memory: 8192M
+    ports:
+      # Chrome DevTools Protocol (matches kernel-images default)
+      - "9222:9222"
+      # Recording API (matches kernel-images default)  
+      - "444:10001"
+      # WebRTC client interface
+      - "8080:8080"
+      # WebRTC UDP port range for local development
+      - "56000-56100:56000-56100/udp"
+    environment:
+      # Display settings
+      - DISPLAY_NUM=1
+      - HEIGHT=768
+      - WIDTH=1024
+      # WebRTC settings
+      - ENABLE_WEBRTC=true
+      - NEKO_WEBRTC_EPR=56000-56100
+      - NEKO_WEBRTC_NAT1TO1=127.0.0.1
+      # Run as kernel user (not root)
+      - RUN_AS_ROOT=false
+      # Mount Chromium flags
+      - CHROMIUM_FLAGS=--user-data-dir=/home/kernel/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox
+    volumes:
+      # Persist recordings in local directory
+      - "./recordings:/recordings"
+      # Mount Chromium flags file (will be created by run script)
+      - "./kernel-images/images/chromium-headful/.tmp/chromium/flags:/chromium/flags:ro"
+    tmpfs:
+      - /dev/shm:size=2g
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s  # Allow more time for startup
+
+volumes:
+  recordings:
+    driver: local
