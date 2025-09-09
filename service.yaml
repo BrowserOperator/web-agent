@@ -59,13 +59,10 @@ spec:
         - name: WIDTH
           value: "1024"
         # Twilio API Key credentials for dynamic TURN generation
-        - name: TWILIO_ACCOUNT_SID
-          value: "SK5346918f48275d6571be927e84cfd6f8"
-        - name: TWILIO_AUTH_TOKEN
-          value: "OWJDRGxZZnxUlwOVXbupRs9yhQaylXzo"
-        # Fresh Twilio TURN credentials (manually generated for now)
+        # No Twilio credentials in fallback mode - credentials handled by twilio-credential-updater.sh
+        # Fallback TURN servers (used when Twilio credentials are not configured)
         - name: NEKO_ICESERVERS
-          value: '[{"urls":["turn:global.turn.twilio.com:3478?transport=tcp"],"username":"b88cfa1369190aa9cbc8bfaca683c457476b5d7062aa0a7b184c87db3ade0ff5","credential":"m3oPEt94gQQP+g2yd4R32MuZtCCdw6Rmmuvkp6/Dkd0="},{"urls":["turn:global.turn.twilio.com:443?transport=tcp"],"username":"b88cfa1369190aa9cbc8bfaca683c457476b5d7062aa0a7b184c87db3ade0ff5","credential":"m3oPEt94gQQP+g2yd4R32MuZtCCdw6Rmmuvkp6/Dkd0="}]'
+          value: '[{"urls":["stun:stun.l.google.com:19302"]},{"urls":["turn:openrelay.metered.ca:80"],"username":"openrelayproject","credential":"openrelayproject"}]'
         # Disable TCP multiplexing (nginx handles port 8080)
         - name: NEKO_WEBRTC_TCPMUX
           value: "0"
@@ -83,7 +80,7 @@ spec:
           value: "/tmp/recordings"
         # Force new revision  
         - name: DEPLOYMENT_VERSION
-          value: "v11-fresh-twilio-credentials"
+          value: "v12-fallback-configuration"
   traffic:
   - percent: 100
     latestRevision: true

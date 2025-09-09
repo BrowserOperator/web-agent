@@ -58,10 +58,10 @@ steps:
         fi
         
         # Update project ID in the chosen service file
-        cp $$SERVICE_FILE temp-service.yaml
+        cp $SERVICE_FILE temp-service.yaml
         sed -i "s/PROJECT_ID/$PROJECT_ID/g" temp-service.yaml
         
-        echo "Deploying with: $$SERVICE_FILE"
+        echo "Deploying with: $SERVICE_FILE"
         cat temp-service.yaml
         
         # Deploy to Cloud Run
