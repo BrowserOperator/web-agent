@@ -59,7 +59,6 @@ http {
     
     # Configure log files to use /tmp for non-root execution
     access_log /tmp/cloudrun-nginx-access.log;
-    
     # Create temp directories for nginx (non-root execution)
     client_body_temp_path /tmp/nginx_client_temp;
     proxy_temp_path /tmp/nginx_proxy_temp;
