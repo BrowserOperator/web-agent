@@ -91,6 +91,7 @@ spec:
     spec:
       containers:
       - name: kernel-browser
+        image: us-docker.pkg.dev/${PROJECT_ID}/gcr.io/kernel-browser:latest
         env:
         - name: NEKO_ICESERVERS
           value: '${ice_servers}'

@@ -227,15 +227,34 @@ Example: 1 hour session ≈ $0.50-1.00
 
 The `cloudbuild.yaml` provides:
 1. Submodule initialization
-2. Docker image build
+2. Docker image build with caching
 3. Container Registry push
 4. Cloud Run deployment
 5. Traffic routing
 
-Trigger builds via:
+### Build Commands
+
 ```bash
+# Normal build (with cache) - recommended for development
 gcloud builds submit --config cloudbuild.yaml
+
+# Force rebuild without cache - use when dependencies change
+gcloud builds submit --config cloudbuild.yaml --substitutions=_NO_CACHE=true
+
+# Automated deployment with Twilio TURN server setup
+./deploy.sh
 ```
+
+### Cache Control
+
+The build system uses Docker layer caching by default to reduce build times and costs:
+- **With cache**: ~5-10 minutes, lower cost
+- **Without cache**: ~30+ minutes, higher cost (~$3-5 per build)
+
+Use `_NO_CACHE=true` only when:
+- Dependencies have changed significantly
+- Base images need updating
+- Debugging build issues
 
 ## 📚 Additional Resources
 

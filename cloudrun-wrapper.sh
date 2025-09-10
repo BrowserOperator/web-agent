@@ -13,6 +13,12 @@ export HEIGHT=768
 export WIDTH=1024
 export NEKO_BIND=:8081
 
+# WebRTC Cloud Run configuration - force relay-only mode
+export NEKO_WEBRTC_ICE_LITE=true
+export NEKO_WEBRTC_ICE_POLICY=relay
+export NEKO_WEBRTC_MDNS=false
+export NEKO_WEBRTC_ICE_INTERFACES=""
+
 # Get fresh Twilio TURN credentials if available
 if [ -f /twilio-credential-updater.sh ]; then
     echo "[cloudrun-wrapper] Getting fresh Twilio TURN credentials..."
@@ -50,6 +56,9 @@ events {
 http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
+    
+    # Configure log files to use /tmp for non-root execution
+    access_log /tmp/cloudrun-nginx-access.log;
     
     # Create temp directories for nginx (non-root execution)
     client_body_temp_path /tmp/nginx_client_temp;
@@ -120,6 +129,7 @@ http {
         # Chrome DevTools Protocol HTTP endpoints
         location /json {
             proxy_pass http://127.0.0.1:9223/json;
+            proxy_http_version 1.1;
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;
             proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -129,6 +139,7 @@ http {
         # Chrome DevTools Protocol HTTP endpoints (with trailing slash)
         location /json/ {
             proxy_pass http://127.0.0.1:9223/json/;
+            proxy_http_version 1.1;
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;
             proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
