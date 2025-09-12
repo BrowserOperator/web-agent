@@ -80,7 +80,9 @@ RUN_ARGS=(
   --memory 8192m
   -p 9222:9222
   -p 444:10001
-  -p 8001:8001
+  -p 8000:8000 \
+  -p 8001:8001 \
+  -p 8081:8081
   -e DISPLAY_NUM=1
   -e HEIGHT=768
   -e WIDTH=1024
@@ -91,7 +93,6 @@ RUN_ARGS=(
 # WebRTC port mapping
 if [[ "${ENABLE_WEBRTC:-}" == "true" ]]; then
   echo "Running container with WebRTC"
-  RUN_ARGS+=( -p 8080:8080 )
   RUN_ARGS+=( -e ENABLE_WEBRTC=true )
   if [[ -n "${NEKO_ICESERVERS:-}" ]]; then
     RUN_ARGS+=( -e NEKO_ICESERVERS="$NEKO_ICESERVERS" )
@@ -108,7 +109,8 @@ docker run -it "${RUN_ARGS[@]}" "$IMAGE"
 
 echo ""
 echo "🌐 Extended service should be accessible at:"
-echo "   WebRTC Client:        http://localhost:8080"
+echo "   WebRTC Client:        http://localhost:8000"
+echo "   Eval Server API:      http://localhost:8081"
 echo "   Chrome DevTools:      http://localhost:9222"
 echo "   Recording API:        http://localhost:444"
 echo "   Enhanced DevTools UI: http://localhost:8001"

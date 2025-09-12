@@ -52,6 +52,34 @@ RUN git checkout upstream/main
 # Build Browser Operator version
 RUN npm run build
 
+# Enable automation mode by default
+ARG AUTOMATED_MODE=true
+RUN if [ "$AUTOMATED_MODE" = "true" ]; then \
+    sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' \
+    front_end/panels/ai_chat/core/BuildConfig.ts; \
+    fi
+
+# Rebuild with automation mode enabled
+RUN if [ "$AUTOMATED_MODE" = "true" ]; then \
+    npm run build; \
+    fi
+
+# ============================================================================
+# Eval Server build stage
+# ============================================================================
+FROM --platform=linux/amd64 node:18-alpine AS eval-server-builder
+
+WORKDIR /workspace
+
+# Clone browser-operator-core to get eval server
+RUN apk add --no-cache git
+RUN git clone https://github.com/BrowserOperator/browser-operator-core.git
+
+WORKDIR /workspace/browser-operator-core/eval-server/nodejs
+
+# Install dependencies
+RUN npm install
+
 # ============================================================================
 # Use kernel-images base with DevTools integration
 # ============================================================================
@@ -253,6 +281,12 @@ RUN ln -s /etc/nginx/sites-available/devtools /etc/nginx/sites-enabled/devtools 
 # Add DevTools nginx service to supervisor
 COPY supervisor/services/nginx-devtools.conf /etc/supervisor/conf.d/services/nginx-devtools.conf
 
+# Add eval server service to supervisor
+COPY supervisor/services/eval-server.conf /etc/supervisor/conf.d/services/eval-server.conf
+
+# Add neko service to supervisor (configured for port 8000)
+COPY supervisor/services/neko.conf /etc/supervisor/conf.d/services/neko.conf
+
 # Create nginx temp directories and set permissions
 RUN mkdir -p /var/lib/nginx/body \
              /var/lib/nginx/proxy \
@@ -263,5 +297,27 @@ RUN mkdir -p /var/lib/nginx/body \
     chown -R www-data:www-data /usr/share/nginx/devtools
 
 RUN useradd -m -s /bin/bash kernel
+
+# ============================================================================
+# Eval Server Integration
+# ============================================================================
+
+# Copy eval server from builder
+COPY --from=eval-server-builder /workspace/browser-operator-core/eval-server/nodejs /opt/eval-server
+
+# Copy local with-http-wrapper.js to override the default one
+COPY with-http-wrapper.js /opt/eval-server/examples/with-http-wrapper.js
+
+# Install Node.js in final image for eval server
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create eval server startup script
+RUN echo '#!/bin/bash\ncd /opt/eval-server && node examples/with-http-wrapper.js' > /usr/local/bin/start-eval-server.sh && \
+    chmod +x /usr/local/bin/start-eval-server.sh
+
+# Expose ports
+EXPOSE 8000 8001 8080
 
 ENTRYPOINT [ "/wrapper.sh" ]
