@@ -4,7 +4,7 @@
 # DevTools Frontend build stage using browser-operator-core
 FROM --platform=linux/amd64 ubuntu:22.04 AS devtools-builder
 
-# Install required packages for DevTools frontend build
+# Install required packages
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -30,7 +30,8 @@ RUN git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
 ENV PATH="/workspace/depot_tools:${PATH}"
 ENV DEPOT_TOOLS_UPDATE=0
 
-# Follow README instructions exactly - fetching code
+# Follow README instructions exactly:
+# fetching code
 RUN mkdir devtools
 WORKDIR /workspace/devtools
 RUN fetch devtools-frontend
@@ -49,25 +50,23 @@ RUN git remote add upstream https://github.com/BrowserOperator/browser-operator-
 RUN git fetch upstream
 RUN git checkout upstream/main
 
-# Build Browser Operator version
+# Copy local changes from the repository (preserve build config)
+# Copy only the modified parts to avoid build conflicts
+COPY browser-operator-core/front_end/core /workspace/devtools/devtools-frontend/front_end/core/
+COPY browser-operator-core/front_end/panels/ai_chat /workspace/devtools/devtools-frontend/front_end/panels/ai_chat/
+COPY browser-operator-core/front_end/entrypoints /workspace/devtools/devtools-frontend/front_end/entrypoints/
+COPY browser-operator-core/scripts /workspace/devtools/devtools-frontend/scripts/
+
+# Force automated mode
+RUN sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' front_end/panels/ai_chat/core/BuildConfig.ts;
+
+# Build Browser Operator version with current changes
 RUN npm run build
-
-# Enable automation mode by default
-ARG AUTOMATED_MODE=true
-RUN if [ "$AUTOMATED_MODE" = "true" ]; then \
-    sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' \
-    front_end/panels/ai_chat/core/BuildConfig.ts; \
-    fi
-
-# Rebuild with automation mode enabled
-RUN if [ "$AUTOMATED_MODE" = "true" ]; then \
-    npm run build; \
-    fi
 
 # ============================================================================
 # Eval Server build stage
 # ============================================================================
-FROM --platform=linux/amd64 node:18-alpine AS eval-server-builder
+FROM --platform=linux/arm64 node:18-alpine AS eval-server-builder
 
 WORKDIR /workspace
 
@@ -83,7 +82,7 @@ RUN npm install
 # ============================================================================
 # Use kernel-images base with DevTools integration
 # ============================================================================
-FROM docker.io/golang:1.25.0 AS server-builder
+FROM --platform=linux/arm64 docker.io/golang:1.25.0 AS server-builder
 WORKDIR /workspace/server
 
 ARG TARGETOS
@@ -95,11 +94,11 @@ COPY kernel-images/server/go.sum ./
 RUN go mod download
 
 COPY kernel-images/server/ .
-RUN GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
+RUN GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-arm64} \
     go build -ldflags="-s -w" -o /out/kernel-images-api ./cmd/api
 
 # webrtc client
-FROM node:22-bullseye-slim AS client
+FROM --platform=linux/arm64 node:22-bullseye-slim AS client
 WORKDIR /src
 COPY kernel-images/images/chromium-headful/client/package*.json ./
 RUN npm install
@@ -107,7 +106,7 @@ COPY kernel-images/images/chromium-headful/client/ .
 RUN npm run build
 
 # xorg dependencies
-FROM docker.io/ubuntu:22.04 AS xorg-deps
+FROM --platform=linux/arm64 docker.io/ubuntu:22.04 AS xorg-deps
 WORKDIR /xorg
 ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
@@ -132,11 +131,11 @@ RUN set -eux; \
     make -j$(nproc); \
     make install;
 
-FROM ghcr.io/onkernel/neko/base:3.0.6-v1.0.1 AS neko
+FROM --platform=linux/arm64 ghcr.io/onkernel/neko/base:3.0.6-v1.0.1 AS neko
 # ^--- now has event.SYSTEM_PONG with legacy support to keepalive
 
 # Final stage: kernel-images base + DevTools static files
-FROM docker.io/ubuntu:22.04
+FROM --platform=linux/arm64 docker.io/ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DEBIAN_PRIORITY=high
@@ -304,9 +303,6 @@ RUN useradd -m -s /bin/bash kernel
 
 # Copy eval server from builder
 COPY --from=eval-server-builder /workspace/browser-operator-core/eval-server/nodejs /opt/eval-server
-
-# Copy local with-http-wrapper.js to override the default one
-COPY with-http-wrapper.js /opt/eval-server/examples/with-http-wrapper.js
 
 # Install Node.js in final image for eval server
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
