@@ -262,6 +262,9 @@ COPY kernel-images/images/chromium-headful/wrapper.sh /wrapper.sh
 COPY kernel-images/images/chromium-headful/supervisord.conf /etc/supervisor/supervisord.conf
 COPY kernel-images/images/chromium-headful/supervisor/services/ /etc/supervisor/conf.d/services/
 
+# Override chromium.conf with local version that includes auto-open-devtools
+COPY supervisor/services/chromium.conf /etc/supervisor/conf.d/services/chromium.conf
+
 # copy the kernel-images API binary built in the builder stage
 COPY --from=server-builder /out/kernel-images-api /usr/local/bin/kernel-images-api
 
