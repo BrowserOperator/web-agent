@@ -70,11 +70,10 @@ FROM --platform=linux/arm64 node:18-alpine AS eval-server-builder
 
 WORKDIR /workspace
 
-# Clone browser-operator-core to get eval server
-RUN apk add --no-cache git
-RUN git clone https://github.com/BrowserOperator/browser-operator-core.git
+# Copy local browser-operator-core eval server with our modifications
+COPY browser-operator-core/eval-server/nodejs /workspace/eval-server
 
-WORKDIR /workspace/browser-operator-core/eval-server/nodejs
+WORKDIR /workspace/eval-server
 
 # Install dependencies
 RUN npm install
@@ -305,7 +304,7 @@ RUN useradd -m -s /bin/bash kernel
 # ============================================================================
 
 # Copy eval server from builder
-COPY --from=eval-server-builder /workspace/browser-operator-core/eval-server/nodejs /opt/eval-server
+COPY --from=eval-server-builder /workspace/eval-server /opt/eval-server
 
 # Install Node.js in final image for eval server
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
@@ -317,6 +316,6 @@ RUN echo '#!/bin/bash\ncd /opt/eval-server && node examples/with-http-wrapper.js
     chmod +x /usr/local/bin/start-eval-server.sh
 
 # Expose ports
-EXPOSE 8000 8001 8080
+EXPOSE 8000 8001 8080 8081 8082
 
 ENTRYPOINT [ "/wrapper.sh" ]

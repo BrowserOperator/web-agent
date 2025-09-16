@@ -82,7 +82,9 @@ RUN_ARGS=(
   -p 444:10001
   -p 8000:8000 \
   -p 8001:8001 \
-  -p 8081:8081
+  -p 8080:8080 \
+  -p 8081:8081 \
+  -p 8082:8082
   -e DISPLAY_NUM=1
   -e HEIGHT=768
   -e WIDTH=1024
@@ -105,12 +107,14 @@ fi
 
 # Run with our additional DevTools port mapping
 docker rm -f "$NAME" 2>/dev/null || true
-docker run -it "${RUN_ARGS[@]}" "$IMAGE"
+docker run -d "${RUN_ARGS[@]}" "$IMAGE"
 
 echo ""
 echo "🌐 Extended service should be accessible at:"
 echo "   WebRTC Client:        http://localhost:8000"
-echo "   Eval Server API:      http://localhost:8081"
+echo "   Eval Server HTTP API: http://localhost:8080"
+echo "   WebRTC (Neko):        http://localhost:8081"
+echo "   Eval Server WS:       ws://localhost:8082"
 echo "   Chrome DevTools:      http://localhost:9222"
 echo "   Recording API:        http://localhost:444"
 echo "   Enhanced DevTools UI: http://localhost:8001"

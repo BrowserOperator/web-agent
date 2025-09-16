@@ -92,8 +92,8 @@ done
 if [[ "${ENABLE_WEBRTC:-}" == "true" ]]; then
   echo "[cloudrun-kernel] Starting Neko (WebRTC)..."
   supervisorctl -c /etc/supervisor/supervisord-cloudrun.conf start neko
-  echo "[cloudrun-kernel] Waiting for Neko on port 8080..."
-  while ! nc -z 127.0.0.1 8080 2>/dev/null; do
+  echo "[cloudrun-kernel] Waiting for Neko on port 8081..."
+  while ! nc -z 127.0.0.1 8081 2>/dev/null; do
     sleep 0.5
   done
 fi
