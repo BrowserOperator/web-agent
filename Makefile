@@ -22,7 +22,8 @@ build: init ## Build extended image with DevTools frontend
 
 run: ## Run extended container with DevTools (interactive)
 	@echo "🚀 Starting extended kernel-browser with DevTools..."
-	./run-local.sh
+	@if [ -n "$(URLS)" ]; then echo "📄 Opening URLs: $(URLS)"; fi
+	URLS='$(URLS)' ./run-local.sh
 
 compose-up: build ## Start with docker-compose (background)
 	@echo "🚀 Starting with docker-compose..."

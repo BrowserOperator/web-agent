@@ -92,6 +92,12 @@ RUN_ARGS=(
   --mount type=bind,src="$FLAGS_FILE",dst=/chromium/flags,ro
 )
 
+# Add URLS environment variable if provided
+if [[ -n "${URLS:-}" ]]; then
+  echo "   URLs: $URLS"
+  RUN_ARGS+=( -e URLS="$URLS" )
+fi
+
 # WebRTC port mapping
 if [[ "${ENABLE_WEBRTC:-}" == "true" ]]; then
   echo "Running container with WebRTC"
