@@ -51,11 +51,11 @@ RUN git fetch upstream
 RUN git checkout upstream/main
 
 # Copy local changes from the repository (preserve build config)
-# Copy only the modified parts to avoid build conflicts
-COPY browser-operator-core/front_end/core /workspace/devtools/devtools-frontend/front_end/core/
-COPY browser-operator-core/front_end/panels/ai_chat /workspace/devtools/devtools-frontend/front_end/panels/ai_chat/
-COPY browser-operator-core/front_end/entrypoints /workspace/devtools/devtools-frontend/front_end/entrypoints/
-COPY browser-operator-core/scripts /workspace/devtools/devtools-frontend/scripts/
+# Uncomment the following lines if you want to copy local changes
+# COPY browser-operator-core/front_end/core /workspace/devtools/devtools-frontend/front_end/core/
+# COPY browser-operator-core/front_end/panels/ai_chat /workspace/devtools/devtools-frontend/front_end/panels/ai_chat/
+# COPY browser-operator-core/front_end/entrypoints /workspace/devtools/devtools-frontend/front_end/entrypoints/
+# COPY browser-operator-core/scripts /workspace/devtools/devtools-frontend/scripts/
 
 # Force automated mode
 RUN sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' front_end/panels/ai_chat/core/BuildConfig.ts;
