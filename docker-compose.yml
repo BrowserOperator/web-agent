@@ -2,8 +2,8 @@ version: '3.8'
 
 services:
   kernel-browser:
-    image: "kernel-browser:local"
-    container_name: "kernel-browser-local"
+    image: "kernel-browser:extended"
+    container_name: "kernel-browser-extended"
     privileged: true
     shm_size: 2gb
     deploy:
@@ -30,13 +30,15 @@ services:
       - NEKO_WEBRTC_NAT1TO1=127.0.0.1
       # Run as kernel user (not root)
       - RUN_AS_ROOT=false
-      # Mount Chromium flags
-      - CHROMIUM_FLAGS=--user-data-dir=/home/kernel/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox
+      # Mount Chromium flags (user-data-dir will be set automatically by start-chromium.sh using CHROMIUM_DATA_DIR)
+      - CHROMIUM_FLAGS=--disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox
     volumes:
       # Persist recordings in local directory
       - "./recordings:/recordings"
       # Mount Chromium flags file (will be created by run script)
       - "./kernel-images/images/chromium-headful/.tmp/chromium/flags:/chromium/flags:ro"
+      # Optional: Uncomment to persist Chromium data across container restarts
+      # - "./chromium-data:/data"
     tmpfs:
       - /dev/shm:size=2g
     restart: unless-stopped

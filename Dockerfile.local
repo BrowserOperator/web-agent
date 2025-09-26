@@ -315,6 +315,21 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
 RUN echo '#!/bin/bash\ncd /opt/eval-server && node examples/with-http-wrapper.js' > /usr/local/bin/start-eval-server.sh && \
     chmod +x /usr/local/bin/start-eval-server.sh
 
+# ============================================================================
+# Chromium Data Directory Configuration
+# ============================================================================
+
+# Environment variable for configurable data directory
+ENV CHROMIUM_DATA_DIR=/data
+
+# Create data directory structure for optional volume mounting
+RUN mkdir -p /data/user-data /data/config /data/cache && \
+    chown -R kernel:kernel /data && \
+    chmod -R 755 /data
+
+# Declare volume for optional mounting of Chromium profiles and data
+VOLUME ["/data"]
+
 # Expose ports
 EXPOSE 8000 8001 8080 8081 8082
 
