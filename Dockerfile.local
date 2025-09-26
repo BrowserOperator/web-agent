@@ -4,7 +4,7 @@
 # DevTools Frontend build stage using browser-operator-core
 FROM --platform=linux/amd64 ubuntu:22.04 AS devtools-builder
 
-# Install required packages for DevTools frontend build
+# Install required packages
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -30,7 +30,8 @@ RUN git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
 ENV PATH="/workspace/depot_tools:${PATH}"
 ENV DEPOT_TOOLS_UPDATE=0
 
-# Follow README instructions exactly - fetching code
+# Follow README instructions exactly:
+# fetching code
 RUN mkdir devtools
 WORKDIR /workspace/devtools
 RUN fetch devtools-frontend
@@ -49,13 +50,38 @@ RUN git remote add upstream https://github.com/BrowserOperator/browser-operator-
 RUN git fetch upstream
 RUN git checkout upstream/main
 
-# Build Browser Operator version
+# Copy local changes from the repository (preserve build config)
+# Uncomment the following lines if you want to copy local changes
+# COPY browser-operator-core/front_end/core /workspace/devtools/devtools-frontend/front_end/core/
+# COPY browser-operator-core/front_end/panels/ai_chat /workspace/devtools/devtools-frontend/front_end/panels/ai_chat/
+# COPY browser-operator-core/front_end/entrypoints /workspace/devtools/devtools-frontend/front_end/entrypoints/
+# COPY browser-operator-core/scripts /workspace/devtools/devtools-frontend/scripts/
+
+# Force automated mode
+RUN sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' front_end/panels/ai_chat/core/BuildConfig.ts;
+
+# Build Browser Operator version with current changes
 RUN npm run build
+
+# ============================================================================
+# Eval Server build stage
+# ============================================================================
+FROM --platform=linux/arm64 node:18-alpine AS eval-server-builder
+
+WORKDIR /workspace
+
+# Copy local browser-operator-core eval server with our modifications
+COPY browser-operator-core/eval-server/nodejs /workspace/eval-server
+
+WORKDIR /workspace/eval-server
+
+# Install dependencies
+RUN npm install
 
 # ============================================================================
 # Use kernel-images base with DevTools integration
 # ============================================================================
-FROM docker.io/golang:1.25.0 AS server-builder
+FROM --platform=linux/arm64 docker.io/golang:1.25.0 AS server-builder
 WORKDIR /workspace/server
 
 ARG TARGETOS
@@ -67,11 +93,11 @@ COPY kernel-images/server/go.sum ./
 RUN go mod download
 
 COPY kernel-images/server/ .
-RUN GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
+RUN GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-arm64} \
     go build -ldflags="-s -w" -o /out/kernel-images-api ./cmd/api
 
 # webrtc client
-FROM node:22-bullseye-slim AS client
+FROM --platform=linux/arm64 node:22-bullseye-slim AS client
 WORKDIR /src
 COPY kernel-images/images/chromium-headful/client/package*.json ./
 RUN npm install
@@ -79,7 +105,7 @@ COPY kernel-images/images/chromium-headful/client/ .
 RUN npm run build
 
 # xorg dependencies
-FROM docker.io/ubuntu:22.04 AS xorg-deps
+FROM --platform=linux/arm64 docker.io/ubuntu:22.04 AS xorg-deps
 WORKDIR /xorg
 ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
@@ -104,11 +130,11 @@ RUN set -eux; \
     make -j$(nproc); \
     make install;
 
-FROM ghcr.io/onkernel/neko/base:3.0.6-v1.0.1 AS neko
+FROM --platform=linux/arm64 ghcr.io/onkernel/neko/base:3.0.6-v1.0.1 AS neko
 # ^--- now has event.SYSTEM_PONG with legacy support to keepalive
 
 # Final stage: kernel-images base + DevTools static files
-FROM docker.io/ubuntu:22.04
+FROM --platform=linux/arm64 docker.io/ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DEBIAN_PRIORITY=high
@@ -235,6 +261,9 @@ COPY kernel-images/images/chromium-headful/wrapper.sh /wrapper.sh
 COPY kernel-images/images/chromium-headful/supervisord.conf /etc/supervisor/supervisord.conf
 COPY kernel-images/images/chromium-headful/supervisor/services/ /etc/supervisor/conf.d/services/
 
+# Override chromium.conf with local version that includes auto-open-devtools
+COPY supervisor/services/chromium.conf /etc/supervisor/conf.d/services/chromium.conf
+
 # copy the kernel-images API binary built in the builder stage
 COPY --from=server-builder /out/kernel-images-api /usr/local/bin/kernel-images-api
 
@@ -253,6 +282,12 @@ RUN ln -s /etc/nginx/sites-available/devtools /etc/nginx/sites-enabled/devtools 
 # Add DevTools nginx service to supervisor
 COPY supervisor/services/nginx-devtools.conf /etc/supervisor/conf.d/services/nginx-devtools.conf
 
+# Add eval server service to supervisor
+COPY supervisor/services/eval-server.conf /etc/supervisor/conf.d/services/eval-server.conf
+
+# Add neko service to supervisor (configured for port 8000)
+COPY supervisor/services/neko.conf /etc/supervisor/conf.d/services/neko.conf
+
 # Create nginx temp directories and set permissions
 RUN mkdir -p /var/lib/nginx/body \
              /var/lib/nginx/proxy \
@@ -263,5 +298,24 @@ RUN mkdir -p /var/lib/nginx/body \
     chown -R www-data:www-data /usr/share/nginx/devtools
 
 RUN useradd -m -s /bin/bash kernel
+
+# ============================================================================
+# Eval Server Integration
+# ============================================================================
+
+# Copy eval server from builder
+COPY --from=eval-server-builder /workspace/eval-server /opt/eval-server
+
+# Install Node.js in final image for eval server
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create eval server startup script
+RUN echo '#!/bin/bash\ncd /opt/eval-server && node examples/with-http-wrapper.js' > /usr/local/bin/start-eval-server.sh && \
+    chmod +x /usr/local/bin/start-eval-server.sh
+
+# Expose ports
+EXPOSE 8000 8001 8080 8081 8082
 
 ENTRYPOINT [ "/wrapper.sh" ]

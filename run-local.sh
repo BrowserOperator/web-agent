@@ -80,7 +80,11 @@ RUN_ARGS=(
   --memory 8192m
   -p 9222:9222
   -p 444:10001
-  -p 8001:8001
+  -p 8000:8000 \
+  -p 8001:8001 \
+  -p 8080:8080 \
+  -p 8081:8081 \
+  -p 8082:8082
   -e DISPLAY_NUM=1
   -e HEIGHT=768
   -e WIDTH=1024
@@ -88,10 +92,15 @@ RUN_ARGS=(
   --mount type=bind,src="$FLAGS_FILE",dst=/chromium/flags,ro
 )
 
+# Add URLS environment variable if provided
+if [[ -n "${URLS:-}" ]]; then
+  echo "   URLs: $URLS"
+  RUN_ARGS+=( -e URLS="$URLS" )
+fi
+
 # WebRTC port mapping
 if [[ "${ENABLE_WEBRTC:-}" == "true" ]]; then
   echo "Running container with WebRTC"
-  RUN_ARGS+=( -p 8080:8080 )
   RUN_ARGS+=( -e ENABLE_WEBRTC=true )
   if [[ -n "${NEKO_ICESERVERS:-}" ]]; then
     RUN_ARGS+=( -e NEKO_ICESERVERS="$NEKO_ICESERVERS" )
@@ -104,11 +113,14 @@ fi
 
 # Run with our additional DevTools port mapping
 docker rm -f "$NAME" 2>/dev/null || true
-docker run -it "${RUN_ARGS[@]}" "$IMAGE"
+docker run -d "${RUN_ARGS[@]}" "$IMAGE"
 
 echo ""
 echo "🌐 Extended service should be accessible at:"
-echo "   WebRTC Client:        http://localhost:8080"
+echo "   WebRTC Client:        http://localhost:8000"
+echo "   Eval Server HTTP API: http://localhost:8080"
+echo "   WebRTC (Neko):        http://localhost:8081"
+echo "   Eval Server WS:       ws://localhost:8082"
 echo "   Chrome DevTools:      http://localhost:9222"
 echo "   Recording API:        http://localhost:444"
 echo "   Enhanced DevTools UI: http://localhost:8001"

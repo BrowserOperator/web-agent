@@ -22,7 +22,8 @@ build: init ## Build extended image with DevTools frontend
 
 run: ## Run extended container with DevTools (interactive)
 	@echo "🚀 Starting extended kernel-browser with DevTools..."
-	./run-local.sh
+	@if [ -n "$(URLS)" ]; then echo "📄 Opening URLs: $(URLS)"; fi
+	URLS='$(URLS)' ./run-local.sh
 
 compose-up: build ## Start with docker-compose (background)
 	@echo "🚀 Starting with docker-compose..."
@@ -64,7 +65,8 @@ shell: ## Get shell access to running container
 info: ## Show connection information
 	@echo ""
 	@echo "🌐 Service Access Points:"
-	@echo "   WebRTC Client:        http://localhost:8080"
+	@echo "   WebRTC Client:        http://localhost:8000"
+	@echo "   Eval Server API:      http://localhost:8081"
 	@echo "   Chrome DevTools:      http://localhost:9222/json"
 	@echo "   Recording API:        http://localhost:444/api"
 	@echo "   Enhanced DevTools UI: http://localhost:8001"
@@ -72,8 +74,11 @@ info: ## Show connection information
 
 test: ## Test service endpoints
 	@echo "🧪 Testing service endpoints..."
-	@echo -n "WebRTC Client (8080): "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ || echo "Failed to connect"
+	@echo -n "WebRTC Client (8000): "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ || echo "Failed to connect"
+	@echo ""
+	@echo -n "Eval Server API (8081): "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/ || echo "Failed to connect"
 	@echo ""
 	@echo -n "Chrome DevTools (9222): "
 	@curl -s -o /dev/null -w "%{http_code}" http://localhost:9222/json/version || echo "Failed to connect" 
@@ -88,7 +93,8 @@ test: ## Test service endpoints
 	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/health || echo "Failed to connect"
 	@echo ""
 	@echo "🎯 All services are ready! Access points:"
-	@echo "   WebRTC Client:        http://localhost:8080"
+	@echo "   WebRTC Client:        http://localhost:8000"
+	@echo "   Eval Server API:      http://localhost:8081"
 	@echo "   Chrome DevTools:      http://localhost:9222/json"
 	@echo "   Enhanced DevTools UI: http://localhost:8001"
 
