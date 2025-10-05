@@ -167,6 +167,50 @@ http {
             proxy_send_timeout 86400;
         }
 
+        # Eval-Server HTTP API endpoints
+        location /v1/responses {
+            proxy_pass http://127.0.0.1:8083/v1/responses;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+            proxy_read_timeout 1800;
+            proxy_send_timeout 1800;
+        }
+
+        # Eval-Server status endpoint
+        location /eval/status {
+            proxy_pass http://127.0.0.1:8083/status;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+        }
+
+        # Eval-Server clients endpoint
+        location /eval/clients {
+            proxy_pass http://127.0.0.1:8083/clients;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+        }
+
+        # Eval-Server evaluate endpoint
+        location /eval/evaluate {
+            proxy_pass http://127.0.0.1:8083/evaluate;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+            proxy_read_timeout 1800;
+            proxy_send_timeout 1800;
+        }
+
         # Enhanced DevTools Frontend
         location /devtools/ {
             proxy_pass http://127.0.0.1:8001/;
