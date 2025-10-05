@@ -29,7 +29,7 @@ fi
 
 # Port configuration for Cloud Run
 export PORT=${PORT:-8080}
-export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:---user-data-dir=/home/kernel/user-data --disable-dev-shm-usage --disable-gpu --start-maximized --disable-software-rasterizer --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --disable-features=VizDisplayCompositor --custom-devtools-frontend=http://localhost:8001/ https://www.google.com}"
+export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:---user-data-dir=/home/kernel/user-data --disable-dev-shm-usage --disable-gpu --start-maximized --disable-software-rasterizer --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --disable-features=VizDisplayCompositor --custom-devtools-frontend=http://localhost:8001/ --auto-open-devtools-for-tabs https://www.google.com}"
 
 # Setup directories with proper permissions
 mkdir -p /tmp/nginx_client_temp /tmp/nginx_proxy_temp /tmp/nginx_fastcgi_temp \
