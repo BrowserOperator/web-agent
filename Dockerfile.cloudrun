@@ -49,7 +49,10 @@ RUN git remote add upstream https://github.com/BrowserOperator/browser-operator-
 RUN git fetch upstream
 RUN git checkout upstream/main
 
-# Build Browser Operator version
+# Enable AUTOMATED_MODE for Docker deployment
+RUN sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' front_end/panels/ai_chat/core/BuildConfig.ts
+
+# Build Browser Operator version with AUTOMATED_MODE enabled
 RUN npm run build
 
 # Eval-Server build stage
