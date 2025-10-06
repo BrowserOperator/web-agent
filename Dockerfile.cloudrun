@@ -206,7 +206,7 @@ ENV USERNAME=kernel
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-    wget ca-certificates python2 supervisor xclip xdotool \
+    wget ca-certificates python2 python3 python-is-python3 supervisor xclip xdotool \
     pulseaudio dbus-x11 xserver-xorg-video-dummy \
     libcairo2 libxcb1 libxrandr2 libxv1 libopus0 libvpx7 \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
