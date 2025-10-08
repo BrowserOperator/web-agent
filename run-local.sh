@@ -37,8 +37,7 @@ export UKC_METRO="dummy-metro-for-local-run"
 
 
 # Local-friendly Chrome flags (less restrictive than cloud) + custom DevTools frontend
-# Note: --user-data-dir will be set automatically by start-chromium.sh using CHROMIUM_DATA_DIR
-export CHROMIUM_FLAGS="--disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/"
+export CHROMIUM_FLAGS="--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/"
 
 echo "🔧 Configuration:"
 echo "   Image: $IMAGE"
@@ -61,20 +60,31 @@ source ../../shared/ensure-common-build-run-vars.sh chromium-headful
 HOST_RECORDINGS_DIR="$SCRIPT_DIR/recordings"
 mkdir -p "$HOST_RECORDINGS_DIR"
 
-# Optional Chromium data directory for persistence
-# Set CHROMIUM_DATA_HOST to enable volume mounting (e.g., ./chromium-data)
-if [[ -n "${CHROMIUM_DATA_HOST:-}" ]]; then
-  echo "🗂️  Using persistent Chromium data directory: $CHROMIUM_DATA_HOST"
-  mkdir -p "$CHROMIUM_DATA_HOST"
-  CHROMIUM_DATA_VOLUME="-v $(realpath "$CHROMIUM_DATA_HOST"):/data"
-else
+# Chromium data directory for persistence
+# Set CHROMIUM_DATA_HOST to customize location (default: ./chromium-data)
+# Set CHROMIUM_DATA_HOST="" to disable persistence (ephemeral mode)
+if [[ "${CHROMIUM_DATA_HOST+set}" == "set" && -z "$CHROMIUM_DATA_HOST" ]]; then
   echo "🔄 Using ephemeral Chromium data (no persistence)"
   CHROMIUM_DATA_VOLUME=""
+else
+  # Default to ./chromium-data if not specified
+  CHROMIUM_DATA_HOST="${CHROMIUM_DATA_HOST:-$SCRIPT_DIR/chromium-data}"
+  echo "🗂️  Using persistent Chromium data directory: $CHROMIUM_DATA_HOST"
+  CHROMIUM_DATA_REAL=$(realpath "$CHROMIUM_DATA_HOST" 2>/dev/null || echo "")
+  if [[ -z "$CHROMIUM_DATA_REAL" ]]; then
+    # Path doesn't exist yet, try to create it first
+    mkdir -p "$CHROMIUM_DATA_HOST"
+    CHROMIUM_DATA_REAL=$(realpath "$CHROMIUM_DATA_HOST" 2>/dev/null || echo "")
+    if [[ -z "$CHROMIUM_DATA_REAL" ]]; then
+      echo "❌ Error: Invalid path $CHROMIUM_DATA_HOST"
+      exit 1
+    fi
+  fi
+  CHROMIUM_DATA_VOLUME="${CHROMIUM_DATA_REAL}:/data"
 fi
 
 # Build Chromium flags file and mount
-# Note: --user-data-dir will be set automatically by start-chromium.sh using CHROMIUM_DATA_DIR
-CHROMIUM_FLAGS_DEFAULT="--disable-dev-shm-usage --disable-gpu --start-maximized --disable-software-rasterizer --remote-allow-origins=*"
+CHROMIUM_FLAGS_DEFAULT="--user-data-dir=/data/user-data --disable-dev-shm-usage --disable-gpu --start-maximized --disable-software-rasterizer --remote-allow-origins=*"
 if [[ "$RUN_AS_ROOT" == "true" ]]; then
   CHROMIUM_FLAGS_DEFAULT="$CHROMIUM_FLAGS_DEFAULT --no-sandbox --no-zygote"
 fi
@@ -107,7 +117,7 @@ RUN_ARGS=(
 
 # Add Chromium data volume if specified
 if [[ -n "$CHROMIUM_DATA_VOLUME" ]]; then
-  RUN_ARGS+=( $CHROMIUM_DATA_VOLUME )
+  RUN_ARGS+=( -v "${CHROMIUM_DATA_VOLUME}" )
 fi
 
 # Add URLS environment variable if provided

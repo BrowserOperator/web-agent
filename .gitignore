@@ -52,3 +52,6 @@ service-account-key.json
 # Backup files
 *.bak
 *.backup
+
+# Chromium persistent data
+chromium-data/

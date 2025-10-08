@@ -12,9 +12,9 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Chromium Data Persistence:"
-	@echo "  - Set CHROMIUM_DATA_HOST=./chromium-data for persistent browser data"
-	@echo "  - Example: CHROMIUM_DATA_HOST=./chromium-data make run"
-	@echo "  - For docker-compose, uncomment the ./chromium-data:/data volume"
+	@echo "  - Browser data persists to ./chromium-data by default"
+	@echo "  - Customize location: CHROMIUM_DATA_HOST=/path/to/data make run"
+	@echo "  - Disable persistence: CHROMIUM_DATA_HOST=\"\" make run"
 
 init: ## Initialize submodules (run this first)
 	git submodule update --init --recursive
@@ -28,8 +28,7 @@ build: init ## Build extended image with DevTools frontend
 run: ## Run extended container with DevTools (interactive)
 	@echo "🚀 Starting extended kernel-browser with DevTools..."
 	@if [ -n "$(URLS)" ]; then echo "📄 Opening URLs: $(URLS)"; fi
-	@if [ -n "$(CHROMIUM_DATA_HOST)" ]; then echo "🗂️  Using persistent data: $(CHROMIUM_DATA_HOST)"; fi
-	CHROMIUM_DATA_HOST='$(CHROMIUM_DATA_HOST)' URLS='$(URLS)' ./run-local.sh
+	@./run-local.sh
 
 compose-up: build ## Start with docker-compose (background)
 	@echo "🚀 Starting with docker-compose..."
