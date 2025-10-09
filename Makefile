@@ -10,6 +10,11 @@ help: ## Show this help message
 	@echo ""
 	@echo "Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Chromium Data Persistence:"
+	@echo "  - Browser data persists to ./chromium-data by default"
+	@echo "  - Customize location: CHROMIUM_DATA_HOST=/path/to/data make run"
+	@echo "  - Disable persistence: CHROMIUM_DATA_HOST=\"\" make run"
 
 init: ## Initialize submodules (run this first)
 	git submodule update --init --recursive
@@ -23,7 +28,7 @@ build: init ## Build extended image with DevTools frontend
 run: ## Run extended container with DevTools (interactive)
 	@echo "🚀 Starting extended kernel-browser with DevTools..."
 	@if [ -n "$(URLS)" ]; then echo "📄 Opening URLs: $(URLS)"; fi
-	URLS='$(URLS)' ./run-local.sh
+	@./run-local.sh
 
 compose-up: build ## Start with docker-compose (background)
 	@echo "🚀 Starting with docker-compose..."
