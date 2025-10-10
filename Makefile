@@ -17,8 +17,8 @@ help: ## Show this help message
 	@echo "  - Disable persistence: CHROMIUM_DATA_HOST=\"\" make run"
 
 init: ## Initialize submodules (run this first)
-	git submodule update --init --recursive
-	@echo "✅ Submodules initialized"
+	git submodule update --init
+	@echo "✅ Submodules initialized (non-recursive - Docker build fetches DevTools dependencies)"
 
 build: init ## Build extended image with DevTools frontend
 	@echo "🔨 Building extended kernel-browser with DevTools frontend..."

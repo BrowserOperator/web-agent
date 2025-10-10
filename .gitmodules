@@ -1,3 +1,6 @@
 [submodule "kernel-images"]
 	path = kernel-images
 	url = https://github.com/onkernel/kernel-images.git
+[submodule "browser-operator-core"]
+	path = browser-operator-core
+	url = git@github.com:BrowserOperator/browser-operator-core.git
