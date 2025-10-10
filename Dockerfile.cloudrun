@@ -49,8 +49,18 @@ RUN git remote add upstream https://github.com/BrowserOperator/browser-operator-
 RUN git fetch upstream
 RUN git checkout upstream/main
 
-# Build Browser Operator version
+# Enable AUTOMATED_MODE for Docker deployment
+RUN sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' front_end/panels/ai_chat/core/BuildConfig.ts
+
+# Build Browser Operator version with AUTOMATED_MODE enabled
 RUN npm run build
+
+# Eval-Server build stage
+FROM node:22-bullseye-slim AS eval-server-builder
+WORKDIR /eval-server
+COPY eval-server/nodejs/package*.json ./
+RUN npm install --production
+COPY eval-server/nodejs/ ./
 
 # Multi-stage build using kernel-images as base
 FROM docker.io/golang:1.25.0 AS server-builder
@@ -143,7 +153,16 @@ RUN apt-get update && \
     netcat \
     nginx \
     # PPA req
-    software-properties-common && \
+    software-properties-common \
+    # Node.js for eval-server
+    ca-certificates \
+    gnupg && \
+    # Install Node.js 22.x for eval-server
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && \
+    apt-get install -y nodejs && \
     # Disable nginx auto-start to prevent conflicts with custom config
     systemctl disable nginx || true && \
     systemctl mask nginx || true && \
@@ -187,7 +206,7 @@ ENV USERNAME=kernel
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-    wget ca-certificates python2 supervisor xclip xdotool \
+    wget ca-certificates python2 python3 python-is-python3 supervisor xclip xdotool \
     pulseaudio dbus-x11 xserver-xorg-video-dummy \
     libcairo2 libxcb1 libxrandr2 libxv1 libopus0 libvpx7 \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
@@ -256,6 +275,20 @@ COPY --from=devtools-builder /workspace/devtools/devtools-frontend/out/Default/g
 # Set permissions for DevTools files
 RUN chown -R kernel:kernel /usr/share/nginx/devtools
 
+# ============================================================================
+# Eval-Server Integration
+# ============================================================================
+
+# Copy eval-server from builder
+COPY --from=eval-server-builder /eval-server /opt/eval-server
+
+# Copy custom eval-server startup script INTO eval-server directory
+COPY eval-server-start.js /opt/eval-server/start-cloudrun.js
+RUN chmod +x /opt/eval-server/start-cloudrun.js
+
+# Set permissions for eval-server
+RUN chown -R kernel:kernel /opt/eval-server
+
 # Cloud Run specific: wrapper scripts (nginx config is inline)
 # DO NOT copy nginx.conf to avoid auto-start conflicts
 COPY cloudrun-wrapper.sh /cloudrun-wrapper.sh
@@ -268,6 +301,7 @@ COPY supervisor/services-cloudrun/xorg.conf /etc/supervisor/conf.d/services-clou
 COPY supervisor/services-cloudrun/neko.conf /etc/supervisor/conf.d/services-cloudrun/neko.conf
 COPY supervisor/services-cloudrun/chromium.conf /etc/supervisor/conf.d/services-cloudrun/chromium.conf
 COPY supervisor/services-cloudrun/devtools-frontend.conf /etc/supervisor/conf.d/services-cloudrun/devtools-frontend.conf
+COPY supervisor/services-cloudrun/eval-server.conf /etc/supervisor/conf.d/services-cloudrun/eval-server.conf
 
 # Create nginx temp directories for non-root execution
 RUN mkdir -p /tmp/nginx_client_temp /tmp/nginx_proxy_temp /tmp/nginx_fastcgi_temp \
@@ -279,7 +313,7 @@ RUN mkdir -p /tmp/nginx_client_temp /tmp/nginx_proxy_temp /tmp/nginx_fastcgi_tem
 # Create supervisor log directories
 RUN mkdir -p /var/log/supervisord/chromium /var/log/supervisord/neko /var/log/supervisord/xorg \
     /var/log/supervisord/dbus /var/log/supervisord/kernel-images-api /var/log/supervisord/mutter \
-    /var/log/supervisord/nginx /var/log/supervisord/devtools-frontend && \
+    /var/log/supervisord/nginx /var/log/supervisord/devtools-frontend /var/log/supervisord/eval-server && \
     chown -R kernel:kernel /var/log/supervisord
 
 # Create health check endpoint

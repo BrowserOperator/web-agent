@@ -1,4 +1,8 @@
 # Cloud Build configuration for kernel-browser
+# Usage: gcloud builds submit --substitutions=_NO_CACHE=true (to disable cache)
+substitutions:
+  _NO_CACHE: 'false'
+
 steps:
   # Step 1: Verify kernel-images directory exists
   - name: 'gcr.io/cloud-builders/docker'
@@ -17,22 +21,36 @@ steps:
     args:
       - '-c'
       - |
-        echo "Attempting to pull previous image for caching..."
-        docker pull us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest || echo "No previous image found for caching"
+        if [ "${_NO_CACHE}" = "true" ]; then
+          echo "⚠️ Cache disabled by _NO_CACHE=true flag"
+        else
+          echo "Attempting to pull previous image for caching..."
+          docker pull us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest || echo "No previous image found for caching"
+        fi
 
   # Step 3: Build the Docker image with caching (using cloudrun Dockerfile)
   - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
     args:
-      - 'build'
-      - '--file'
-      - 'Dockerfile.cloudrun'
-      - '--cache-from'
-      - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
-      - '--build-arg'
-      - 'CACHE_BUST=$BUILD_ID'
-      - '--tag'
-      - 'us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest'
-      - '.'
+      - '-c'
+      - |
+        if [ "${_NO_CACHE}" = "true" ]; then
+          echo "🔨 Building without cache..."
+          docker build \
+            --file Dockerfile.cloudrun \
+            --no-cache \
+            --build-arg CACHE_BUST=$BUILD_ID \
+            --tag us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest \
+            .
+        else
+          echo "🚀 Building with cache from previous image..."
+          docker build \
+            --file Dockerfile.cloudrun \
+            --cache-from us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest \
+            --build-arg CACHE_BUST=$BUILD_ID \
+            --tag us-docker.pkg.dev/$PROJECT_ID/gcr.io/kernel-browser:latest \
+            .
+        fi
     timeout: '3600s'  # Allow 1 hour for build (it's a large image)
 
   # Step 4: Push the image to Artifact Registry
@@ -48,12 +66,14 @@ steps:
       - '-c'
       - |
         # Check if Twilio secrets exist and choose appropriate service file
-        if gcloud secrets describe twilio-account-sid --project=$PROJECT_ID >/dev/null 2>&1 && \
-           gcloud secrets describe twilio-auth-token --project=$PROJECT_ID >/dev/null 2>&1; then
-          echo "Using service-secrets.yaml with Secret Manager references"
+        echo "Checking for Twilio secrets..."
+        if gcloud secrets describe twilio-account-sid --project=$PROJECT_ID && \
+           gcloud secrets describe twilio-auth-token --project=$PROJECT_ID; then
+          echo "✅ Twilio secrets found! Using service-secrets.yaml with Secret Manager references"
           cp service-secrets.yaml temp-service.yaml
         else
-          echo "Using standard service.yaml (secrets not configured)"
+          echo "⚠️ Twilio secrets NOT found. Using standard service.yaml (secrets not configured)"
+          echo "To use Twilio TURN servers, run: ./deploy.sh to set up secrets"
           cp service.yaml temp-service.yaml
         fi
         

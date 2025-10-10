@@ -13,6 +13,12 @@ export HEIGHT=768
 export WIDTH=1024
 export NEKO_BIND=:8081
 
+# WebRTC Cloud Run configuration - force relay-only mode
+export NEKO_WEBRTC_ICE_LITE=true
+export NEKO_WEBRTC_ICE_POLICY=relay
+export NEKO_WEBRTC_MDNS=false
+export NEKO_WEBRTC_ICE_INTERFACES=""
+
 # Get fresh Twilio TURN credentials if available
 if [ -f /twilio-credential-updater.sh ]; then
     echo "[cloudrun-wrapper] Getting fresh Twilio TURN credentials..."
@@ -23,7 +29,7 @@ fi
 
 # Port configuration for Cloud Run
 export PORT=${PORT:-8080}
-export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:---user-data-dir=/home/kernel/user-data --disable-dev-shm-usage --disable-gpu --start-maximized --disable-software-rasterizer --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --disable-features=VizDisplayCompositor --custom-devtools-frontend=http://localhost:8001/ https://www.google.com}"
+export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:---user-data-dir=/home/kernel/user-data --disable-dev-shm-usage --disable-gpu --start-maximized --disable-software-rasterizer --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --disable-features=VizDisplayCompositor --custom-devtools-frontend=http://localhost:8001/ --auto-open-devtools-for-tabs https://www.google.com}"
 
 # Setup directories with proper permissions
 mkdir -p /tmp/nginx_client_temp /tmp/nginx_proxy_temp /tmp/nginx_fastcgi_temp \
@@ -51,6 +57,8 @@ http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
     
+    # Configure log files to use /tmp for non-root execution
+    access_log /tmp/cloudrun-nginx-access.log;
     # Create temp directories for nginx (non-root execution)
     client_body_temp_path /tmp/nginx_client_temp;
     proxy_temp_path /tmp/nginx_proxy_temp;
@@ -120,6 +128,7 @@ http {
         # Chrome DevTools Protocol HTTP endpoints
         location /json {
             proxy_pass http://127.0.0.1:9223/json;
+            proxy_http_version 1.1;
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;
             proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -129,6 +138,7 @@ http {
         # Chrome DevTools Protocol HTTP endpoints (with trailing slash)
         location /json/ {
             proxy_pass http://127.0.0.1:9223/json/;
+            proxy_http_version 1.1;
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;
             proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -155,6 +165,50 @@ http {
             proxy_set_header X-Forwarded-Proto \$scheme;
             proxy_read_timeout 86400;
             proxy_send_timeout 86400;
+        }
+
+        # Eval-Server HTTP API endpoints
+        location /v1/responses {
+            proxy_pass http://127.0.0.1:8083/v1/responses;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+            proxy_read_timeout 1800;
+            proxy_send_timeout 1800;
+        }
+
+        # Eval-Server status endpoint
+        location /eval/status {
+            proxy_pass http://127.0.0.1:8083/status;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+        }
+
+        # Eval-Server clients endpoint
+        location /eval/clients {
+            proxy_pass http://127.0.0.1:8083/clients;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+        }
+
+        # Eval-Server evaluate endpoint
+        location /eval/evaluate {
+            proxy_pass http://127.0.0.1:8083/evaluate;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+            proxy_read_timeout 1800;
+            proxy_send_timeout 1800;
         }
 
         # Enhanced DevTools Frontend

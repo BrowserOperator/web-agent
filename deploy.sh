@@ -149,6 +149,29 @@ setup_secrets() {
         --project="$PROJECT_ID" \
         --quiet
     
+    # Grant Cloud Build service account permission to view secrets (needed for cloudbuild.yaml)
+    local project_number=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
+    local cb_sa_email="${project_number}@cloudbuild.gserviceaccount.com"
+    
+    info "Granting Secret Manager viewer access to Cloud Build service account..."
+    gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+        --member="serviceAccount:$cb_sa_email" \
+        --role="roles/secretmanager.viewer" \
+        --project="$PROJECT_ID" \
+        --quiet
+    
+    gcloud secrets add-iam-policy-binding twilio-account-sid \
+        --member="serviceAccount:$cb_sa_email" \
+        --role="roles/secretmanager.secretAccessor" \
+        --project="$PROJECT_ID" \
+        --quiet
+    
+    gcloud secrets add-iam-policy-binding twilio-auth-token \
+        --member="serviceAccount:$cb_sa_email" \
+        --role="roles/secretmanager.secretAccessor" \
+        --project="$PROJECT_ID" \
+        --quiet
+    
     # Set flag to use secrets-enabled service.yaml
     export USE_SECRETS=true
     
