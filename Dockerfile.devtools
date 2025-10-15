@@ -1,7 +1,13 @@
-# DevTools Frontend build stage using browser-operator-core
-FROM --platform=linux/amd64 ubuntu:22.04 AS devtools-builder
+# Development-optimized Dockerfile for Browser Operator DevTools
+# This Dockerfile is designed for fast iterative builds during local development
+# It caches expensive operations (fetch, sync) and allows quick rebuilds when code changes
 
-# Install required packages for DevTools frontend build
+# ==============================================================================
+# Stage 1: DevTools Base (cached, rarely rebuilt)
+# ==============================================================================
+FROM --platform=linux/amd64 ubuntu:22.04 AS devtools-base
+
+# Install required packages
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -22,12 +28,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
 
 WORKDIR /workspace
 
-# Clone depot_tools
+# Clone depot_tools (cached)
 RUN git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
 ENV PATH="/workspace/depot_tools:${PATH}"
 ENV DEPOT_TOOLS_UPDATE=0
 
-# Follow README instructions exactly - fetching code
+# Fetch devtools-frontend (expensive operation, cached)
 RUN mkdir devtools
 WORKDIR /workspace/devtools
 RUN fetch devtools-frontend
@@ -35,29 +41,63 @@ RUN fetch devtools-frontend
 # Build steps
 WORKDIR /workspace/devtools/devtools-frontend
 
+# Sync dependencies (cached)
 RUN gclient sync
 RUN /workspace/depot_tools/ensure_bootstrap
 
-# Build standard DevTools first
+# Build standard DevTools first (cached)
 RUN npm run build
 
-# Add Browser Operator fork and switch to it
+# Create marker file to indicate base is built
+RUN touch /workspace/.devtools-base-built
+
+# ==============================================================================
+# Stage 2: Apply Browser Operator Changes (fast, iterative)
+# ==============================================================================
+FROM devtools-base AS devtools-local
+
+WORKDIR /workspace/devtools/devtools-frontend
+
+# Add Browser Operator fork
 RUN git remote add upstream https://github.com/BrowserOperator/browser-operator-core.git
 RUN git fetch upstream
 RUN git checkout upstream/main
 
-# Build Browser Operator version
+# This is where local changes would be copied in development mode
+# When building from submodule, copy local changes here:
+# COPY will be added by build script if browser-operator-core/ exists locally
+
+# Force automated mode
+RUN sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' front_end/panels/ai_chat/core/BuildConfig.ts || true
+
+# Build Browser Operator version with current changes
 RUN npm run build
 
-# Production stage for DevTools frontend
-FROM nginx:alpine AS devtools-frontend
-WORKDIR /usr/share/nginx/html
+# Create marker file
+RUN touch /workspace/.devtools-built
 
-# Copy the built DevTools frontend from builder
-COPY --from=devtools-builder /workspace/devtools/devtools-frontend/out/Default/gen/front_end .
+# ==============================================================================
+# Stage 3: Nginx Server (optional, for standalone testing)
+# ==============================================================================
+FROM nginx:alpine AS devtools-server
 
-# Copy nginx config from browser-operator-core
-COPY browser-operator-core/docker/nginx.conf /etc/nginx/conf.d/default.conf
+# Copy the built DevTools frontend
+COPY --from=devtools-local /workspace/devtools/devtools-frontend/out/Default/gen/front_end /usr/share/nginx/html
 
-# Create health check endpoint
-RUN echo '{"status": "healthy", "service": "browser-operator-devtools"}' > health.json
+# Create simple nginx config
+RUN echo 'server { \
+    listen 8001; \
+    root /usr/share/nginx/html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+    location /health { \
+        return 200 "{\"status\":\"healthy\"}"; \
+        add_header Content-Type application/json; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
+
+EXPOSE 8001
+
+# Create health check file
+RUN echo '{"status": "healthy", "service": "browser-operator-devtools"}' > /usr/share/nginx/html/health.json

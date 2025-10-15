@@ -55,3 +55,9 @@ service-account-key.json
 
 # Chromium persistent data
 chromium-data/
+
+# Browser Operator DevTools build artifacts
+browser-operator-core/devtools-frontend/
+browser-operator-core/depot_tools/
+browser-operator-core/.devtools-built
+browser-operator-core/.devtools-base-built

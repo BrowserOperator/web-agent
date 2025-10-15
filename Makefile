@@ -17,10 +17,38 @@ help: ## Show this help message
 	@echo "  - Disable persistence: CHROMIUM_DATA_HOST=\"\" make run"
 
 init: ## Initialize submodules (run this first)
-	git submodule update --init --recursive
+	@echo "📦 Initializing submodules..."
+	git submodule update --init --depth 1 kernel-images
+	git submodule update --init --depth 1 browser-operator-core
 	@echo "✅ Submodules initialized"
 
-build: init ## Build extended image with DevTools frontend
+init-devtools: ## Initialize browser-operator-core submodule only
+	@echo "📦 Initializing browser-operator-core submodule..."
+	git submodule update --init --depth 1 browser-operator-core
+	@echo "✅ browser-operator-core submodule initialized"
+
+build-devtools-base: init-devtools ## Build DevTools base image (slow, rarely needed)
+	@echo "🔨 Building DevTools base layer (this takes ~30 minutes)..."
+	docker build -f Dockerfile.devtools --target devtools-base -t browser-operator-devtools:base .
+	@echo "✅ DevTools base built and cached"
+
+build-devtools: init-devtools ## Build DevTools image (smart: uses cache)
+	@if docker images | grep -q "browser-operator-devtools.*base"; then \
+		echo "✅ Using cached DevTools base"; \
+	else \
+		echo "📦 DevTools base not found, building from scratch..."; \
+		$(MAKE) --no-print-directory build-devtools-base; \
+	fi
+	@echo "🔨 Building Browser Operator DevTools..."
+	docker build -f Dockerfile.devtools --target devtools-server -t browser-operator-devtools:latest .
+	@echo "✅ DevTools built: browser-operator-devtools:latest"
+
+rebuild-devtools: ## Force rebuild DevTools (use after code changes)
+	@echo "🔄 Force rebuilding DevTools..."
+	docker build -f Dockerfile.devtools --no-cache --target devtools-server -t browser-operator-devtools:latest .
+	@echo "✅ DevTools rebuilt"
+
+build: init build-devtools ## Build extended image with DevTools frontend
 	@echo "🔨 Building extended kernel-browser with DevTools frontend..."
 	docker build -f Dockerfile.local -t kernel-browser:extended .
 	@echo "✅ Extended build complete"
@@ -111,6 +139,12 @@ clean: stop ## Clean up everything
 	rm -rf recordings/* 2>/dev/null || true
 	rm -rf kernel-images/images/chromium-headful/.tmp 2>/dev/null || true
 	@echo "✅ Cleanup complete"
+
+clean-devtools: ## Clean DevTools images and cache
+	@echo "🧹 Cleaning DevTools images..."
+	docker rmi browser-operator-devtools:latest 2>/dev/null || true
+	docker rmi browser-operator-devtools:base 2>/dev/null || true
+	@echo "✅ DevTools images removed"
 
 # Alternative commands for different approaches
 native-build: init ## Build using kernel-images native script directly
