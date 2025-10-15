@@ -9,16 +9,22 @@ echo "🔨 Building extended kernel-browser with DevTools frontend..."
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 cd "$SCRIPT_DIR"
 
+# Fix orphaned browser-operator-core submodule if it exists
+if [ -d "browser-operator-core" ] && ! grep -q "browser-operator-core" .gitmodules 2>/dev/null; then
+    echo "🔧 Fixing orphaned browser-operator-core submodule..."
+    git rm -f browser-operator-core 2>/dev/null || true
+    rm -rf .git/modules/browser-operator-core 2>/dev/null || true
+    echo "✅ Removed orphaned submodule"
+fi
+
 # Check if kernel-images submodule exists and is initialized
-if [ ! -d "kernel-images" ]; then
-    echo "❌ Error: kernel-images submodule not found"
-    echo "   Run: git submodule update --init --recursive"
-    exit 1
+if [ ! -d "kernel-images" ] || [ ! -f "kernel-images/images/chromium-headful/build-docker.sh" ]; then
+    echo "📦 Initializing kernel-images submodule..."
+    git submodule update --init --recursive
 fi
 
 if [ ! -f "kernel-images/images/chromium-headful/build-docker.sh" ]; then
-    echo "❌ Error: kernel-images submodule appears empty"
-    echo "   Run: git submodule update --init --recursive"
+    echo "❌ Error: kernel-images submodule appears empty after initialization"
     exit 1
 fi
 

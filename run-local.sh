@@ -80,6 +80,14 @@ else
       exit 1
     fi
   fi
+
+  # Clean up Chromium lock files from previous runs to prevent profile lock errors
+  # These files prevent concurrent access but remain after container crashes
+  echo "🧹 Cleaning Chromium lock files from previous runs..."
+  rm -f "$CHROMIUM_DATA_REAL/user-data/SingletonLock" \
+        "$CHROMIUM_DATA_REAL/user-data/SingletonSocket" \
+        "$CHROMIUM_DATA_REAL/user-data/SingletonCookie" 2>/dev/null || true
+
   CHROMIUM_DATA_VOLUME="${CHROMIUM_DATA_REAL}:/data"
 fi
 

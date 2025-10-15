@@ -70,8 +70,8 @@ FROM --platform=linux/arm64 node:18-alpine AS eval-server-builder
 
 WORKDIR /workspace
 
-# Copy local browser-operator-core eval server with our modifications
-COPY browser-operator-core/eval-server/nodejs /workspace/eval-server
+# Copy local eval server
+COPY eval-server/nodejs /workspace/eval-server
 
 WORKDIR /workspace/eval-server
 
