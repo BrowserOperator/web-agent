@@ -350,6 +350,59 @@ curl -X POST http://localhost:8081/v1/responses \
   -d '{"input": "What is 2+2?"}'
 ```
 
+#### `/v1/responses` Endpoint Details
+
+The `/v1/responses` endpoint provides an OpenAI-compatible interface for chat requests. **Each request automatically creates a new browser tab** to isolate the chat session.
+
+**Behavior:**
+1. Finds a client with existing tabs (skips dummy clients with 0 tabs)
+2. Opens a new browser tab via Chrome DevTools Protocol (CDP)
+3. Waits for the tab's DevTools to connect (up to 10 seconds)
+4. Executes the chat request in the isolated new tab
+5. Returns the response in OpenAI Responses API format
+
+**Request Format:**
+```json
+{
+  "input": "Your question or prompt here",
+  "model": {
+    "main_model": {
+      "provider": "openai",
+      "model": "gpt-4",
+      "api_key": "sk-..."
+    }
+  }
+}
+```
+
+**Response Format:**
+```json
+[
+  {
+    "id": "msg_...",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "output_text",
+        "text": "Response text here",
+        "annotations": []
+      }
+    ]
+  }
+]
+```
+
+**Requirements:**
+- At least one DevTools client must have a connected tab
+- Chrome must be running with remote debugging enabled (port 9223)
+
+**Benefits:**
+- Each chat request runs in isolation
+- Supports parallel requests in different tabs
+- Better tracking and debugging per request
+- Automatic cleanup via browser tab management
+
 ## CLI Usage
 
 Interactive command-line interface for server management:
