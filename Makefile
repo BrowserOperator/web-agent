@@ -43,10 +43,19 @@ build-devtools: init-devtools ## Build DevTools image (smart: uses cache)
 	docker build -f Dockerfile.devtools --target devtools-server -t browser-operator-devtools:latest .
 	@echo "✅ DevTools built: browser-operator-devtools:latest"
 
-rebuild-devtools: ## Force rebuild DevTools (use after code changes)
-	@echo "🔄 Force rebuilding DevTools..."
+rebuild-devtools: ## Fast rebuild DevTools with local changes (recommended)
+	@echo "🔄 Rebuilding DevTools with local changes (using cached base)..."
+	@if ! docker images | grep -q "browser-operator-devtools.*base"; then \
+		echo "❌ DevTools base not found. Building base first..."; \
+		$(MAKE) --no-print-directory build-devtools-base; \
+	fi
+	docker build -f Dockerfile.devtools --target devtools-server -t browser-operator-devtools:latest .
+	@echo "✅ DevTools rebuilt with your local changes"
+
+rebuild-devtools-full: ## Force complete rebuild from scratch (slow, rarely needed)
+	@echo "🔄 Force rebuilding DevTools from scratch (this will take ~30 minutes)..."
 	docker build -f Dockerfile.devtools --no-cache --target devtools-server -t browser-operator-devtools:latest .
-	@echo "✅ DevTools rebuilt"
+	@echo "✅ DevTools completely rebuilt"
 
 build: init build-devtools ## Build extended image with DevTools frontend
 	@echo "🔨 Building extended kernel-browser with DevTools frontend..."

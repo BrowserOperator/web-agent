@@ -48,6 +48,16 @@ RUN /workspace/depot_tools/ensure_bootstrap
 # Build standard DevTools first (cached)
 RUN npm run build
 
+# Add Browser Operator fork and checkout main branch
+# This ensures the base has all Browser Operator customizations (ai_chat panel, etc.)
+RUN git remote add upstream https://github.com/BrowserOperator/browser-operator-core.git
+RUN git fetch upstream
+RUN git checkout upstream/main
+
+# Build Browser Operator version to ensure everything works
+# This catches any build issues in the base layer
+RUN npm run build
+
 # Create marker file to indicate base is built
 RUN touch /workspace/.devtools-base-built
 
@@ -56,21 +66,18 @@ RUN touch /workspace/.devtools-base-built
 # ==============================================================================
 FROM devtools-base AS devtools-local
 
+# Copy local changes from browser-operator-core submodule FIRST
+# This happens before checking out upstream, so we copy over the upstream code
+COPY browser-operator-core/front_end /workspace/devtools/devtools-frontend/front_end
+COPY browser-operator-core/eval-server /workspace/devtools/devtools-frontend/eval-server
+
 WORKDIR /workspace/devtools/devtools-frontend
-
-# Add Browser Operator fork
-RUN git remote add upstream https://github.com/BrowserOperator/browser-operator-core.git
-RUN git fetch upstream
-RUN git checkout upstream/main
-
-# This is where local changes would be copied in development mode
-# When building from submodule, copy local changes here:
-# COPY will be added by build script if browser-operator-core/ exists locally
 
 # Force automated mode
 RUN sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' front_end/panels/ai_chat/core/BuildConfig.ts || true
 
-# Build Browser Operator version with current changes
+# Build Browser Operator version with local changes
+# This build is much faster since we're only building the changed files
 RUN npm run build
 
 # Create marker file
