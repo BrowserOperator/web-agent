@@ -375,22 +375,34 @@ class APIServer {
         }
       });
 
-      // Find a connected and ready client
-      const readyClient = this.findReadyClient();
-      if (!readyClient) {
-        throw new Error('No DevTools client is connected and ready. Please ensure a DevTools client is connected to the evaluation server.');
-      }
+      // Find a client with existing tabs (not the dummy client)
+      const baseClientId = this.findClientWithTabs();
+
+      // Open a new tab for this request
+      logger.info('Opening new tab for responses request', { baseClientId });
+      const tabResult = await this.evaluationServer.openTab(baseClientId, {
+        url: 'about:blank',
+        background: false
+      });
+
+      logger.info('Tab opened successfully', {
+        tabId: tabResult.tabId,
+        compositeClientId: tabResult.compositeClientId
+      });
+
+      // Wait for the new tab's DevTools to connect
+      const tabClient = await this.waitForClientConnection(tabResult.compositeClientId);
 
       // Create a dynamic evaluation for this request
       const evaluation = this.createDynamicEvaluationNested(requestBody.input, nestedModelConfig);
 
-      // Execute the evaluation on the DevTools client
-      logger.info('Executing evaluation on DevTools client', {
-        clientId: readyClient.clientId,
+      // Execute the evaluation on the new tab's DevTools client
+      logger.info('Executing evaluation on new tab', {
+        compositeClientId: tabResult.compositeClientId,
         evaluationId: evaluation.id
       });
 
-      const result = await this.evaluationServer.executeEvaluation(readyClient, evaluation);
+      const result = await this.evaluationServer.executeEvaluation(tabClient, evaluation);
 
       // Debug: log the result structure
       logger.debug('executeEvaluation result:', result);
@@ -463,6 +475,54 @@ class APIServer {
       }
     }
     return null;
+  }
+
+  /**
+   * Find a client that has existing tabs (not the dummy client)
+   * @returns {string} Base client ID
+   */
+  findClientWithTabs() {
+    const clients = this.evaluationServer.getClientManager().getAllClients();
+
+    for (const client of clients) {
+      const tabs = this.evaluationServer.getClientManager().getClientTabs(client.id);
+      if (tabs.length > 0) {
+        logger.info('Found client with tabs', { clientId: client.id, tabCount: tabs.length });
+        return client.id;
+      }
+    }
+
+    throw new Error('No client with existing tabs found. Please ensure at least one DevTools client with a tab is connected.');
+  }
+
+  /**
+   * Wait for a client connection to be established and ready
+   * @param {string} compositeClientId - Composite client ID (baseClientId:tabId)
+   * @param {number} maxWaitMs - Maximum time to wait in milliseconds
+   * @returns {Promise<Object>} Connection object
+   */
+  async waitForClientConnection(compositeClientId, maxWaitMs = 10000) {
+    const startTime = Date.now();
+    const pollInterval = 500; // Check every 500ms
+
+    logger.info('Waiting for client connection', { compositeClientId, maxWaitMs });
+
+    while (Date.now() - startTime < maxWaitMs) {
+      const connection = this.evaluationServer.connectedClients.get(compositeClientId);
+
+      if (connection && connection.ready) {
+        logger.info('Client connection established and ready', {
+          compositeClientId,
+          waitedMs: Date.now() - startTime
+        });
+        return connection;
+      }
+
+      // Wait before next check
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+
+    throw new Error(`Timeout waiting for client connection: ${compositeClientId}. Tab may not have connected to eval-server.`);
   }
 
   /**
