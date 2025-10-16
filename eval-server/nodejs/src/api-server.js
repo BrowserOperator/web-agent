@@ -96,6 +96,10 @@ class APIServer {
       if (pathname.startsWith('/clients/') && pathname.endsWith('/evaluations')) {
         const clientId = pathname.split('/')[2];
         result = this.getClientEvaluations(clientId);
+      } else if (pathname.startsWith('/clients/') && pathname.endsWith('/tabs')) {
+        // Handle dynamic client tabs route
+        const clientId = pathname.split('/')[2];
+        result = this.getClientTabsById(clientId);
       } else {
         switch (pathname) {
           case '/status':
@@ -153,23 +157,23 @@ class APIServer {
 
   getClients() {
     const clients = this.evaluationServer.getClientManager().getAllClients();
+    const connectedClients = this.evaluationServer.connectedClients;
 
     return clients.map(client => {
-      const evaluations = this.evaluationServer.getClientManager().getClientEvaluations(client.id);
-      const connection = this.evaluationServer.connectedClients.get(client.id);
+      const tabs = this.evaluationServer.getClientManager().getClientTabs(client.id);
 
       return {
         id: client.id,
         name: client.name,
         description: client.description,
-        connected: !!connection,
-        ready: connection?.ready || false,
-        evaluations: evaluations.map(evaluation => ({
-          id: evaluation.id,
-          name: evaluation.name,
-          tool: evaluation.tool,
-          status: evaluation.status || 'pending',
-          enabled: evaluation.enabled !== false
+        tabCount: tabs.length,
+        tabs: tabs.map(tab => ({
+          tabId: tab.tabId,
+          compositeClientId: tab.compositeClientId,
+          connected: connectedClients.has(tab.compositeClientId),
+          ready: connectedClients.get(tab.compositeClientId)?.ready || false,
+          connectedAt: tab.connectedAt,
+          remoteAddress: tab.connection?.remoteAddress || 'unknown'
         }))
       };
     });
@@ -192,6 +196,34 @@ class APIServer {
         enabled: evaluation.enabled !== false,
         lastRun: evaluation.lastRun,
         lastResult: evaluation.lastResult
+      }))
+    };
+  }
+
+  getClientTabsById(clientId) {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const tabs = this.evaluationServer.getClientManager().getClientTabs(clientId);
+    const connectedClients = this.evaluationServer.connectedClients;
+    const client = this.evaluationServer.getClientManager().getClient(clientId);
+
+    if (!client) {
+      throw new Error(`Client '${clientId}' not found`);
+    }
+
+    return {
+      baseClientId: clientId,
+      clientName: client.name,
+      tabCount: tabs.length,
+      tabs: tabs.map(tab => ({
+        tabId: tab.tabId,
+        compositeClientId: tab.compositeClientId,
+        connected: connectedClients.has(tab.compositeClientId),
+        ready: connectedClients.get(tab.compositeClientId)?.ready || false,
+        connectedAt: tab.connectedAt,
+        remoteAddress: tab.connection?.remoteAddress || 'unknown'
       }))
     };
   }
