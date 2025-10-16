@@ -180,6 +180,167 @@ The server supports runtime LLM configuration via the `configure_llm` JSON-RPC m
 }
 ```
 
+### Tab Management
+
+The evaluation server supports managing browser tabs via REST API endpoints and Chrome DevTools Protocol (CDP).
+
+#### Tab Identification
+
+Each browser tab is identified by a **composite client ID** in the format: `baseClientId:tabId`
+
+- `baseClientId`: The persistent identifier for the DevTools client (e.g., `9907fd8d-92a8-4a6a-bce9-458ec8c57306`)
+- `tabId`: The Chrome target ID for the specific tab (e.g., `482D56EE57B1931A3B9D1BFDAF935429`)
+
+#### API Endpoints
+
+**List All Clients and Tabs**
+```bash
+GET /clients
+```
+
+Returns all registered clients with their active tabs, connection status, and readiness state.
+
+Response format:
+```json
+[
+  {
+    "id": "baseClientId",
+    "name": "Client Name",
+    "description": "Client Description",
+    "tabCount": 3,
+    "tabs": [
+      {
+        "tabId": "482D56EE57B1931A3B9D1BFDAF935429",
+        "compositeClientId": "baseClientId:tabId",
+        "connected": true,
+        "ready": true,
+        "connectedAt": "2025-01-15T10:30:00.000Z",
+        "remoteAddress": "::ffff:172.18.0.1"
+      }
+    ]
+  }
+]
+```
+
+**List Tabs for Specific Client**
+```bash
+GET /clients/{clientId}/tabs
+```
+
+Returns all tabs for a specific client identified by `baseClientId`.
+
+**Open New Tab**
+```bash
+POST /tabs/open
+Content-Type: application/json
+
+{
+  "clientId": "baseClientId:tabId",
+  "url": "https://example.com",
+  "background": false
+}
+```
+
+Opens a new tab in the browser associated with the specified client.
+
+Response format:
+```json
+{
+  "clientId": "baseClientId:tabId",
+  "tabId": "newTabId",
+  "compositeClientId": "baseClientId:newTabId",
+  "url": "https://example.com",
+  "status": "opened"
+}
+```
+
+**Close Tab**
+```bash
+POST /tabs/close
+Content-Type: application/json
+
+{
+  "clientId": "baseClientId:tabId",
+  "tabId": "targetTabId"
+}
+```
+
+Closes the specified tab.
+
+Response format:
+```json
+{
+  "clientId": "baseClientId:tabId",
+  "tabId": "targetTabId",
+  "status": "closed",
+  "success": true
+}
+```
+
+#### Implementation Architecture
+
+**Direct CDP Approach (Current)**
+
+Tab management is implemented using direct Chrome DevTools Protocol (CDP) communication:
+
+1. Server discovers the CDP WebSocket endpoint via `http://localhost:9223/json/version`
+2. For each command (open/close), a new WebSocket connection is established to the CDP endpoint
+3. Commands are sent using JSON-RPC 2.0 format:
+   - `Target.createTarget` - Opens new tab
+   - `Target.closeTarget` - Closes existing tab
+4. WebSocket connection is closed after receiving the response
+
+Key implementation files:
+- `src/lib/EvalServer.js` - Contains `sendCDPCommand()`, `openTab()`, and `closeTab()` methods
+- `src/api-server.js` - REST API endpoints that delegate to EvalServer methods
+
+**Alternative Approach Considered**
+
+An RPC-based approach was initially considered where:
+- API server sends JSON-RPC request to DevTools client via WebSocket
+- DevTools client executes CDP commands locally
+- Response is sent back via JSON-RPC
+
+This was rejected in favor of direct CDP communication for simplicity and reduced latency.
+
+#### Chrome Setup
+
+The browser must be started with remote debugging enabled:
+```bash
+chromium --remote-debugging-port=9223
+```
+
+The CDP endpoint is accessible at:
+- HTTP: `http://localhost:9223/json/version`
+- WebSocket: `ws://localhost:9223/devtools/browser/{browserId}`
+
+#### Current Limitations
+
+**⚠️ Known Issue: WebSocket Timeout**
+
+Tab opening and closing functionality is currently experiencing a WebSocket timeout issue:
+
+- Symptom: `sendCDPCommand()` times out after 10 seconds with no response
+- Error: `CDP command timeout: Target.createTarget`
+- Status: Under investigation
+- Debugging approach: Added extensive logging to track WebSocket lifecycle events
+
+The CDP endpoint is correctly discovered and accessible, but WebSocket messages are not being received. This may be related to:
+- WebSocket handshake issues
+- CDP protocol version mismatch
+- Network/proxy configuration
+- Chrome process state
+
+**Workaround**: Until this issue is resolved, tab management via the API is not functional. Manual CDP testing is required to diagnose the root cause.
+
+#### Future Enhancements
+
+- Automatic tab registration in ClientManager when DevTools connects
+- Tab lifecycle events (opened, closed, navigated)
+- Bulk tab operations
+- Tab metadata (title, URL, favicon)
+- Tab grouping and organization
+
 ### Configuration
 
 All configuration is managed through environment variables and `src/config.js`. Key settings:
@@ -188,3 +349,4 @@ All configuration is managed through environment variables and `src/config.js`. 
 - RPC timeouts
 - Logging levels and directories
 - Maximum concurrent evaluations
+- CDP endpoint (default: localhost:9223)

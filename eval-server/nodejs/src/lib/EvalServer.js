@@ -827,6 +827,188 @@ export class EvalServer extends EventEmitter {
   }
 
   /**
+   * Get the browser-level CDP WebSocket endpoint
+   * @returns {Promise<string>} WebSocket URL
+   */
+  async getCDPBrowserEndpoint() {
+    try {
+      const response = await fetch('http://localhost:9223/json/version');
+      const data = await response.json();
+      return data.webSocketDebuggerUrl;
+    } catch (error) {
+      logger.error('Failed to get CDP browser endpoint', { error: error.message });
+      throw new Error('Failed to connect to Chrome DevTools Protocol');
+    }
+  }
+
+  /**
+   * Send a CDP command via WebSocket
+   * @param {string} method - CDP method name
+   * @param {Object} params - CDP method parameters
+   * @returns {Promise<Object>} CDP response
+   */
+  async sendCDPCommand(method, params = {}) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const { default: WebSocket } = await import('ws');
+        const cdpEndpoint = await this.getCDPBrowserEndpoint();
+        const ws = new WebSocket(cdpEndpoint);
+        // Use a simple counter for CDP message IDs (must be a reasonable integer)
+        const id = Math.floor(Math.random() * 1000000);
+
+      const timeout = setTimeout(() => {
+        ws.close();
+        reject(new Error(`CDP command timeout: ${method}`));
+      }, 10000);
+
+      ws.on('open', () => {
+        const message = JSON.stringify({
+          id,
+          method,
+          params
+        });
+        logger.info('CDP WebSocket opened, sending command', { method, params, cdpEndpoint });
+        ws.send(message);
+      });
+
+      ws.on('message', (data) => {
+        try {
+          const response = JSON.parse(data.toString());
+          logger.info('CDP WebSocket message received', {
+            method,
+            responseId: response.id,
+            expectedId: id,
+            hasResult: !!response.result,
+            hasError: !!response.error,
+            fullResponse: JSON.stringify(response)
+          });
+          if (response.id === id) {
+            clearTimeout(timeout);
+            ws.close();
+
+            if (response.error) {
+              logger.error('CDP command error', { method, error: response.error });
+              reject(new Error(`CDP error: ${response.error.message}`));
+            } else {
+              logger.info('CDP command success', { method, result: response.result });
+              resolve(response.result);
+            }
+          } else {
+            logger.warn('CDP message ID mismatch', {
+              method,
+              receivedId: response.id,
+              expectedId: id,
+              responseType: response.method ? 'event' : 'response'
+            });
+          }
+        } catch (error) {
+          clearTimeout(timeout);
+          ws.close();
+          logger.error('CDP message parse error', { error: error.message });
+          reject(error);
+        }
+      });
+
+      ws.on('error', (error) => {
+        clearTimeout(timeout);
+        logger.error('CDP WebSocket error', { error: error.message });
+        reject(error);
+      });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Open a new tab using CDP directly
+   * @param {string} baseClientId - Base client ID (or will be extracted from composite ID)
+   * @param {Object} options - Tab options
+   * @param {string} options.url - URL to open in the new tab (default: 'about:blank')
+   * @param {boolean} options.background - Whether to open in background (default: false)
+   * @returns {Promise<Object>} Result with tabId
+   */
+  async openTab(baseClientId, options = {}) {
+    const { url = 'about:blank', background = false } = options;
+    // Extract base client ID if composite ID was passed
+    const cleanBaseClientId = baseClientId.split(':')[0];
+
+    try {
+      logger.info('Opening new tab via CDP', { url, background, baseClientId: cleanBaseClientId });
+
+      // Use CDP Target.createTarget
+      const result = await this.sendCDPCommand('Target.createTarget', {
+        url,
+        newWindow: false,
+        background
+      });
+
+      const tabId = result.targetId;
+      const compositeClientId = `${cleanBaseClientId}:${tabId}`;
+
+      logger.info('Tab opened successfully via CDP', {
+        tabId,
+        compositeClientId,
+        url
+      });
+
+      return {
+        tabId,
+        compositeClientId,
+        url
+      };
+    } catch (error) {
+      logger.error('Failed to open tab via CDP', {
+        baseClientId,
+        url,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Close a tab using CDP directly
+   * @param {string} baseClientId - Base client ID (currently not used, kept for API compatibility)
+   * @param {Object} options - Close options
+   * @param {string} options.tabId - Tab ID to close
+   * @returns {Promise<Object>} Result with success status
+   */
+  async closeTab(baseClientId, options = {}) {
+    const { tabId } = options;
+
+    if (!tabId) {
+      throw new Error('tabId is required to close a tab');
+    }
+
+    try {
+      logger.info('Closing tab via CDP', { tabId, baseClientId });
+
+      // Use CDP Target.closeTarget
+      const result = await this.sendCDPCommand('Target.closeTarget', {
+        targetId: tabId
+      });
+
+      logger.info('Tab closed successfully via CDP', {
+        tabId,
+        success: result.success
+      });
+
+      return {
+        success: result.success !== false,
+        tabId
+      };
+    } catch (error) {
+      logger.error('Failed to close tab via CDP', {
+        tabId,
+        baseClientId,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Validate response using configured judge
    */
   async validateResponse(response, evaluation) {

@@ -118,6 +118,22 @@ class APIServer {
             result = await this.triggerEvaluation(JSON.parse(body));
             break;
 
+          case '/tabs/open':
+            if (method !== 'POST') {
+              this.sendError(res, 405, 'Method not allowed');
+              return;
+            }
+            result = await this.openTab(JSON.parse(body));
+            break;
+
+          case '/tabs/close':
+            if (method !== 'POST') {
+              this.sendError(res, 405, 'Method not allowed');
+              return;
+            }
+            result = await this.closeTab(JSON.parse(body));
+            break;
+
           case '/v1/responses':
             if (method !== 'POST') {
               this.sendError(res, 405, 'Method not allowed');
@@ -284,6 +300,53 @@ class APIServer {
         status: 'completed'
       };
 
+  }
+
+  async openTab(payload) {
+    const { clientId, url = 'about:blank', background = false } = payload;
+
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    // Since we use direct CDP, we don't need the client to be connected
+    // Just extract the baseClientId (first part before colon if composite, or the whole ID)
+    const baseClientId = clientId.split(':')[0];
+
+    const result = await this.evaluationServer.openTab(baseClientId, { url, background });
+
+    return {
+      clientId: baseClientId,
+      tabId: result.tabId,
+      compositeClientId: result.compositeClientId,
+      url: result.url || url,
+      status: 'opened'
+    };
+  }
+
+  async closeTab(payload) {
+    const { clientId, tabId } = payload;
+
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    if (!tabId) {
+      throw new Error('Tab ID is required');
+    }
+
+    // Since we use direct CDP, we don't need the client to be connected
+    // Just extract the baseClientId
+    const baseClientId = clientId.split(':')[0];
+
+    const result = await this.evaluationServer.closeTab(baseClientId, { tabId });
+
+    return {
+      clientId: baseClientId,
+      tabId,
+      status: 'closed',
+      success: result.success !== false
+    };
   }
 
   /**

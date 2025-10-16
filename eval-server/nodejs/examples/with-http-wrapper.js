@@ -19,7 +19,7 @@ const evalServer = new EvalServer({
 console.log('🔧 Creating HTTP wrapper...');
 const httpWrapper = new HTTPWrapper(evalServer, {
   port: 8080,
-  host: '127.0.0.1'
+  host: '0.0.0.0'
 });
 
 
