@@ -362,12 +362,18 @@ class APIServer {
       // Handle nested model configuration directly
       const nestedModelConfig = this.processNestedModelConfig(requestBody);
 
+      // Extract optional URL and wait timeout
+      const targetUrl = requestBody.url || 'about:blank';
+      const waitTimeout = requestBody.wait_timeout || 5000;
+
       const redact = (mk) => ({
         ...mk,
         api_key: mk?.api_key ? `${String(mk.api_key).slice(0, 4)}...` : undefined
       });
       logger.info('Processing responses request:', {
         input: requestBody.input,
+        url: targetUrl,
+        wait_timeout: targetUrl !== 'about:blank' ? waitTimeout : 0,
         modelConfig: {
           main_model: redact(nestedModelConfig.main_model),
           mini_model: redact(nestedModelConfig.mini_model),
@@ -378,10 +384,10 @@ class APIServer {
       // Find a client with existing tabs (not the dummy client)
       const baseClientId = this.findClientWithTabs();
 
-      // Open a new tab for this request
-      logger.info('Opening new tab for responses request', { baseClientId });
+      // Open a new tab for this request at the specified URL
+      logger.info('Opening new tab for responses request', { baseClientId, url: targetUrl });
       const tabResult = await this.evaluationServer.openTab(baseClientId, {
-        url: 'about:blank',
+        url: targetUrl,
         background: false
       });
 
@@ -392,6 +398,12 @@ class APIServer {
 
       // Wait for the new tab's DevTools to connect
       const tabClient = await this.waitForClientConnection(tabResult.compositeClientId);
+
+      // Wait for page to load if a custom URL was provided
+      if (targetUrl !== 'about:blank') {
+        logger.info('Waiting for page to load', { waitTimeout });
+        await new Promise(resolve => setTimeout(resolve, waitTimeout));
+      }
 
       // Create a dynamic evaluation for this request
       const evaluation = this.createDynamicEvaluationNested(requestBody.input, nestedModelConfig);
@@ -484,6 +496,7 @@ class APIServer {
   findClientWithTabs() {
     const clients = this.evaluationServer.getClientManager().getAllClients();
 
+    // First, try to find a client with existing tabs
     for (const client of clients) {
       const tabs = this.evaluationServer.getClientManager().getClientTabs(client.id);
       if (tabs.length > 0) {
@@ -492,7 +505,13 @@ class APIServer {
       }
     }
 
-    throw new Error('No client with existing tabs found. Please ensure at least one DevTools client with a tab is connected.');
+    // If no client with tabs, use the first available client (even with 0 tabs)
+    if (clients.length > 0) {
+      logger.info('No clients with tabs found, using first available client', { clientId: clients[0].id });
+      return clients[0].id;
+    }
+
+    throw new Error('No clients found. Please ensure at least one DevTools client is registered.');
   }
 
   /**
@@ -540,7 +559,7 @@ class APIServer {
       description: 'Dynamic evaluation created from API request',
       enabled: true,
       tool: 'chat',
-      timeout: 1500000, // 25 minutes
+      timeout: 7200000, // 2 hours (increased for slow custom API)
       input: {
         message: input
       },

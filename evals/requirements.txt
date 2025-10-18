@@ -1,0 +1,13 @@
+# Evaluation Framework Dependencies
+
+# YAML parsing
+PyYAML>=6.0
+
+# HTTP client
+requests>=2.31.0
+
+# OpenAI API client for LLM judge
+openai>=1.0.0
+
+# Environment variable management
+python-dotenv>=1.0.0

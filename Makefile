@@ -1,7 +1,7 @@
 # Makefile for kernel-browser local development
 # Using kernel-images native build system
 
-.PHONY: help build run stop logs clean dev status shell test
+.PHONY: help build rebuild run stop logs clean dev status shell test
 
 # Default target
 help: ## Show this help message
@@ -57,10 +57,23 @@ rebuild-devtools-full: ## Force complete rebuild from scratch (slow, rarely need
 	docker build -f Dockerfile.devtools --no-cache --target devtools-server -t browser-operator-devtools:latest .
 	@echo "✅ DevTools completely rebuilt"
 
-build: init build-devtools ## Build extended image with DevTools frontend
+build: init ## Build extended image with DevTools frontend (smart: only builds DevTools if needed)
 	@echo "🔨 Building extended kernel-browser with DevTools frontend..."
+	@if ! docker images | grep -q "browser-operator-devtools.*latest"; then \
+		echo "📦 DevTools image not found, building it first..."; \
+		echo "   This is a one-time operation and will take ~30 minutes..."; \
+		$(MAKE) --no-print-directory build-devtools; \
+	else \
+		echo "✅ Using existing DevTools image"; \
+	fi
 	docker build -f Dockerfile.local -t kernel-browser:extended .
 	@echo "✅ Extended build complete"
+
+rebuild: init ## Force complete rebuild (including DevTools)
+	@echo "🔄 Force rebuilding everything from scratch..."
+	$(MAKE) --no-print-directory build-devtools
+	docker build -f Dockerfile.local -t kernel-browser:extended .
+	@echo "✅ Complete rebuild finished"
 
 run: ## Run extended container with DevTools (interactive)
 	@echo "🚀 Starting extended kernel-browser with DevTools..."
