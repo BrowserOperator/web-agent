@@ -192,6 +192,156 @@ class APIClient:
         except Exception as e:
             return f"[Error extracting response: {e}]"
 
+    def capture_screenshot(
+        self,
+        client_id: str,
+        tab_id: str,
+        full_page: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Capture a screenshot of a specific tab.
+
+        Args:
+            client_id: Base client ID
+            tab_id: Tab ID to capture
+            full_page: Whether to capture the full page (default: False)
+
+        Returns:
+            Dict with:
+            - success: bool
+            - image_data: str (base64 data URL) if successful
+            - error: str (if any)
+        """
+        api_url = f"{self.base_url}/page/screenshot"
+
+        payload = {
+            "clientId": client_id,
+            "tabId": tab_id,
+            "fullPage": full_page
+        }
+
+        try:
+            response = requests.post(
+                api_url,
+                json=payload,
+                timeout=self.timeout,
+                headers={"Content-Type": "application/json"}
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            return {
+                "success": True,
+                "image_data": result.get("imageData"),
+                "format": result.get("format", "png"),
+                "error": None
+            }
+
+        except requests.exceptions.Timeout:
+            return {
+                "success": False,
+                "image_data": None,
+                "error": f"Screenshot request timed out after {self.timeout} seconds"
+            }
+
+        except requests.exceptions.HTTPError as e:
+            error_msg = f"HTTP error: {e.response.status_code}"
+            try:
+                error_details = e.response.json()
+                error_msg += f" - {error_details.get('error', str(error_details))}"
+            except:
+                error_msg += f" - {e.response.text[:200]}"
+
+            return {
+                "success": False,
+                "image_data": None,
+                "error": error_msg
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "image_data": None,
+                "error": f"Screenshot failed: {str(e)}"
+            }
+
+    def get_page_content(
+        self,
+        client_id: str,
+        tab_id: str,
+        format: str = "html"
+    ) -> Dict[str, Any]:
+        """
+        Get page content (HTML or text) from a specific tab.
+
+        Args:
+            client_id: Base client ID
+            tab_id: Tab ID to get content from
+            format: Content format - "html" or "text" (default: "html")
+
+        Returns:
+            Dict with:
+            - success: bool
+            - content: str (page content) if successful
+            - format: str (content format)
+            - error: str (if any)
+        """
+        api_url = f"{self.base_url}/page/content"
+
+        payload = {
+            "clientId": client_id,
+            "tabId": tab_id,
+            "format": format
+        }
+
+        try:
+            response = requests.post(
+                api_url,
+                json=payload,
+                timeout=self.timeout,
+                headers={"Content-Type": "application/json"}
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            return {
+                "success": True,
+                "content": result.get("content"),
+                "format": result.get("format", format),
+                "length": result.get("length", 0),
+                "error": None
+            }
+
+        except requests.exceptions.Timeout:
+            return {
+                "success": False,
+                "content": None,
+                "error": f"Content request timed out after {self.timeout} seconds"
+            }
+
+        except requests.exceptions.HTTPError as e:
+            error_msg = f"HTTP error: {e.response.status_code}"
+            try:
+                error_details = e.response.json()
+                error_msg += f" - {error_details.get('error', str(error_details))}"
+            except:
+                error_msg += f" - {e.response.text[:200]}"
+
+            return {
+                "success": False,
+                "content": None,
+                "error": error_msg
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "content": None,
+                "error": f"Content retrieval failed: {str(e)}"
+            }
+
     def check_health(self) -> bool:
         """
         Check if the API server is healthy.

@@ -18,7 +18,7 @@ const evalServer = new EvalServer({
 
 console.log('🔧 Creating HTTP wrapper...');
 const httpWrapper = new HTTPWrapper(evalServer, {
-  port: 8080,
+  port: 8083,
   host: '0.0.0.0'
 });
 
@@ -29,11 +29,11 @@ console.log('✅ EvalServer started on ws://127.0.0.1:8082');
 
 console.log('🔧 Starting HTTP wrapper...');
 await httpWrapper.start();
-console.log('✅ HTTP API started on http://127.0.0.1:8080');
+console.log('✅ HTTP API started on http://127.0.0.1:8083');
 
 console.log('⏳ Waiting for DevTools client to connect...');
 console.log('   WebSocket URL: ws://127.0.0.1:8082');
-console.log('   HTTP API URL: http://127.0.0.1:8080');
+console.log('   HTTP API URL: http://127.0.0.1:8083');
 console.log('   Auth: Disabled (automated mode)');
 
 // Add periodic status check

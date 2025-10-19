@@ -773,12 +773,6 @@ export class EvalServer extends EventEmitter {
         evaluation.timeout || 45000
       );
 
-      // Validate response if needed and judge is available
-      let validationResult = null;
-      if (evaluation.validation && this.judge) {
-        validationResult = await this.validateResponse(response, evaluation);
-      }
-
       // Update evaluation status
       this.clientManager.updateEvaluationStatus(
         connection.clientId,
@@ -786,7 +780,6 @@ export class EvalServer extends EventEmitter {
         'completed',
         {
           response,
-          validation: validationResult,
           duration: Date.now() - startTime
         }
       );
@@ -798,7 +791,6 @@ export class EvalServer extends EventEmitter {
         name: evaluation.name,
         tool: evaluation.tool,
         response,
-        validation: validationResult,
         timestamp: new Date().toISOString(),
         duration: Date.now() - startTime
       });
@@ -832,7 +824,9 @@ export class EvalServer extends EventEmitter {
    */
   async getCDPBrowserEndpoint() {
     try {
-      const response = await fetch('http://localhost:9223/json/version');
+      const cdpUrl = `http://${CONFIG.cdp.host}:${CONFIG.cdp.port}/json/version`;
+      logger.info('Attempting to connect to CDP', { cdpUrl });
+      const response = await fetch(cdpUrl);
       const data = await response.json();
       return data.webSocketDebuggerUrl;
     } catch (error) {
@@ -914,6 +908,105 @@ export class EvalServer extends EventEmitter {
         logger.error('CDP WebSocket error', { error: error.message });
         reject(error);
       });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Send a CDP command to a specific target (tab)
+   * This requires attaching to the target first, then detaching after
+   * @param {string} targetId - Target ID (tab ID)
+   * @param {string} method - CDP method name
+   * @param {Object} params - CDP method parameters
+   * @returns {Promise<Object>} CDP response
+   */
+  async sendCDPCommandToTarget(targetId, method, params = {}) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const { default: WebSocket } = await import('ws');
+        const cdpEndpoint = await this.getCDPBrowserEndpoint();
+        const ws = new WebSocket(cdpEndpoint);
+
+        let sessionId = null;
+        const attachId = Math.floor(Math.random() * 1000000);
+        const commandId = Math.floor(Math.random() * 1000000);
+
+        const timeout = setTimeout(() => {
+          ws.close();
+          reject(new Error(`CDP target command timeout: ${method} on ${targetId}`));
+        }, 15000);
+
+        ws.on('open', () => {
+          // First, attach to the target
+          const attachMessage = JSON.stringify({
+            id: attachId,
+            method: 'Target.attachToTarget',
+            params: {
+              targetId,
+              flatten: true
+            }
+          });
+          logger.info('CDP attaching to target', { targetId, method });
+          ws.send(attachMessage);
+        });
+
+        ws.on('message', (data) => {
+          try {
+            const response = JSON.parse(data.toString());
+
+            // Handle attach response
+            if (response.id === attachId) {
+              if (response.error) {
+                clearTimeout(timeout);
+                ws.close();
+                logger.error('CDP attach error', { targetId, error: response.error });
+                reject(new Error(`CDP attach error: ${response.error.message}`));
+                return;
+              }
+
+              sessionId = response.result.sessionId;
+              logger.info('CDP attached to target, sending command', { sessionId, method });
+
+              // Now send the actual command with the session ID
+              const commandMessage = JSON.stringify({
+                id: commandId,
+                method,
+                params,
+                sessionId
+              });
+              ws.send(commandMessage);
+            }
+
+            // Handle command response
+            else if (response.id === commandId) {
+              clearTimeout(timeout);
+
+              if (response.error) {
+                logger.error('CDP target command error', { method, targetId, error: response.error });
+                ws.close();
+                reject(new Error(`CDP error: ${response.error.message}`));
+              } else {
+                logger.info('CDP target command success', { method, targetId });
+                ws.close();
+                resolve(response.result);
+              }
+            }
+            // Ignore other messages (events, etc.)
+          } catch (error) {
+            clearTimeout(timeout);
+            ws.close();
+            logger.error('CDP message parse error', { error: error.message });
+            reject(error);
+          }
+        });
+
+        ws.on('error', (error) => {
+          clearTimeout(timeout);
+          logger.error('CDP WebSocket error', { error: error.message });
+          reject(error);
+        });
       } catch (error) {
         reject(error);
       }
@@ -1009,43 +1102,120 @@ export class EvalServer extends EventEmitter {
   }
 
   /**
-   * Validate response using configured judge
+   * Get page HTML content using CDP
+   * @param {string} tabId - Tab ID (target ID)
+   * @returns {Promise<Object>} Result with HTML content
    */
-  async validateResponse(response, evaluation) {
-    if (!this.judge) {
-      logger.warn('Validation requested but no judge configured');
-      return {
-        type: 'no-judge',
-        result: { message: 'No judge configured for validation' },
-        passed: true // Assume passed if no judge
-      };
-    }
+  async getPageHTML(tabId) {
+    try {
+      logger.info('Getting page HTML via CDP', { tabId });
 
-    const validation = evaluation.validation;
+      // Use Runtime.evaluate to get document.documentElement.outerHTML
+      const result = await this.sendCDPCommandToTarget(tabId, 'Runtime.evaluate', {
+        expression: 'document.documentElement.outerHTML',
+        returnByValue: true
+      });
 
-    if (validation.type === 'llm-judge' || validation.type === 'hybrid') {
-      const llmConfig = validation.llm_judge || validation.llmJudge;
-      const criteria = llmConfig?.criteria || [];
-      const task = `${evaluation.name} - ${evaluation.description || ''}`;
+      const html = result.result.value;
 
-      const judgeResult = await this.judge.evaluate(
-        task,
-        JSON.stringify(response.output || response),
-        {
-          criteria,
-          model: llmConfig?.model
-        }
-      );
+      logger.info('Page HTML retrieved successfully', {
+        tabId,
+        length: html.length
+      });
 
       return {
-        type: 'llm-judge',
-        result: judgeResult,
-        passed: judgeResult.score >= 0.7
+        tabId,
+        content: html,
+        format: 'html',
+        length: html.length
       };
+    } catch (error) {
+      logger.error('Failed to get page HTML via CDP', {
+        tabId,
+        error: error.message
+      });
+      throw error;
     }
-
-    return null;
   }
+
+  /**
+   * Get page text content using CDP
+   * @param {string} tabId - Tab ID (target ID)
+   * @returns {Promise<Object>} Result with text content
+   */
+  async getPageText(tabId) {
+    try {
+      logger.info('Getting page text via CDP', { tabId });
+
+      // Use Runtime.evaluate to get document.body.innerText
+      const result = await this.sendCDPCommandToTarget(tabId, 'Runtime.evaluate', {
+        expression: 'document.body.innerText',
+        returnByValue: true
+      });
+
+      const text = result.result.value;
+
+      logger.info('Page text retrieved successfully', {
+        tabId,
+        length: text.length
+      });
+
+      return {
+        tabId,
+        content: text,
+        format: 'text',
+        length: text.length
+      };
+    } catch (error) {
+      logger.error('Failed to get page text via CDP', {
+        tabId,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Capture page screenshot using CDP
+   * @param {string} tabId - Tab ID (target ID)
+   * @param {Object} options - Screenshot options
+   * @param {boolean} options.fullPage - Whether to capture full page (default: false)
+   * @returns {Promise<Object>} Result with screenshot data
+   */
+  async captureScreenshot(tabId, options = {}) {
+    const { fullPage = false } = options;
+
+    try {
+      logger.info('Capturing screenshot via CDP', { tabId, fullPage });
+
+      // Use Page.captureScreenshot
+      const result = await this.sendCDPCommandToTarget(tabId, 'Page.captureScreenshot', {
+        format: 'png',
+        captureBeyondViewport: fullPage
+      });
+
+      const imageData = `data:image/png;base64,${result.data}`;
+
+      logger.info('Screenshot captured successfully', {
+        tabId,
+        dataLength: result.data.length
+      });
+
+      return {
+        tabId,
+        imageData,
+        format: 'png',
+        fullPage
+      };
+    } catch (error) {
+      logger.error('Failed to capture screenshot via CDP', {
+        tabId,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
 }
 
 /**

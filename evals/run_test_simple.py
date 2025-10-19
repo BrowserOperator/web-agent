@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Action Agent Evaluation Runner
+Test Simple Evaluation Runner
 
-Runs evaluations for action-agent category and generates reports.
+Runs evaluations for test-simple category and generates reports.
 """
 
 import argparse
@@ -70,7 +70,7 @@ class EvaluationRunner:
         Run evaluations for a specific category.
 
         Args:
-            category: Category name (e.g., 'action-agent')
+            category: Category name (e.g., 'test-simple')
             limit: Maximum number of evaluations to run
             eval_ids: Optional list of specific evaluation IDs to run
         """
@@ -284,7 +284,7 @@ class EvaluationRunner:
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Run action-agent evaluations"
+        description="Run test-simple evaluations"
     )
     parser.add_argument(
         '--limit',
@@ -316,7 +316,7 @@ def main():
         # Create and run evaluation runner
         runner = EvaluationRunner(config)
         runner.run_evaluations(
-            category='action-agent',
+            category='test-simple',
             limit=limit,
             eval_ids=args.eval_ids
         )

@@ -33,20 +33,26 @@ input:
 
 
 validation:
-  type: "hybrid"
+  type: "llm-judge"
   llm_judge:
     model: "gpt-4o"
     criteria:
-      - "Successfully navigated to product search"
-      - "Applied appropriate filters correctly"
-      - "Extracted product details accurately"
-      - "Provided meaningful comparison of features"
-      - "Stayed within specified price range"
-  snapshot:
-    structure_only: true
-    exclude_paths:
-      - "timestamp"
-      - "sessionId"
+      - "Successfully found wireless headphones products on Amazon"
+      - "Returned products that are under $100 as requested"
+      - "Each product includes name, price, rating, and URL fields"
+      - "Results are presented in clear, structured text format (not JSON)"
+      - "All products listed are relevant to \"wireless headphones\""
+      - "Price information is clearly stated for each product"
+      - "Products are numbered or bulleted for easy reading"
+    visual_verification:
+      enabled: true
+      capture_before_action: true
+      capture_after_action: true
+      verification_prompts:
+        - "Verify Amazon search results are showing wireless headphones"
+        - "Check that visible products are under $100 price range"
+        - "Confirm product listings include name, price, and rating information"
+        - "Ensure search and filtering workflow completed successfully"
 
 metadata:
   tags: ["web-task", "multi-step", "ecommerce", "search"]

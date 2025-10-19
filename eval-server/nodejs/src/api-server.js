@@ -142,6 +142,22 @@ class APIServer {
             result = await this.handleResponsesRequest(JSON.parse(body));
             break;
 
+          case '/page/content':
+            if (method !== 'POST') {
+              this.sendError(res, 405, 'Method not allowed');
+              return;
+            }
+            result = await this.getPageContent(JSON.parse(body));
+            break;
+
+          case '/page/screenshot':
+            if (method !== 'POST') {
+              this.sendError(res, 405, 'Method not allowed');
+              return;
+            }
+            result = await this.getScreenshot(JSON.parse(body));
+            break;
+
           default:
             this.sendError(res, 404, 'Not found');
             return;
@@ -346,6 +362,67 @@ class APIServer {
       tabId,
       status: 'closed',
       success: result.success !== false
+    };
+  }
+
+  async getPageContent(payload) {
+    const { clientId, tabId, format = 'html' } = payload;
+
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    if (!tabId) {
+      throw new Error('Tab ID is required');
+    }
+
+    if (!['html', 'text'].includes(format)) {
+      throw new Error('Format must be either "html" or "text"');
+    }
+
+    const baseClientId = clientId.split(':')[0];
+
+    logger.info('Getting page content', { baseClientId, tabId, format });
+
+    // Call appropriate method based on format
+    const result = format === 'html'
+      ? await this.evaluationServer.getPageHTML(tabId)
+      : await this.evaluationServer.getPageText(tabId);
+
+    return {
+      clientId: baseClientId,
+      tabId: result.tabId,
+      content: result.content,
+      format: result.format,
+      length: result.length,
+      timestamp: Date.now()
+    };
+  }
+
+  async getScreenshot(payload) {
+    const { clientId, tabId, fullPage = false } = payload;
+
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    if (!tabId) {
+      throw new Error('Tab ID is required');
+    }
+
+    const baseClientId = clientId.split(':')[0];
+
+    logger.info('Capturing screenshot', { baseClientId, tabId, fullPage });
+
+    const result = await this.evaluationServer.captureScreenshot(tabId, { fullPage });
+
+    return {
+      clientId: baseClientId,
+      tabId: result.tabId,
+      imageData: result.imageData,
+      format: result.format,
+      fullPage: result.fullPage,
+      timestamp: Date.now()
     };
   }
 

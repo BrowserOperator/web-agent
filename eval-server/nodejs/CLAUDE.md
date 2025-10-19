@@ -4,7 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-bo-eval-server is a WebSocket-based evaluation server for LLM agents that implements an LLM-as-a-judge evaluation system. The server accepts connections from AI agents, sends them evaluation tasks via RPC calls, collects their responses, and uses an LLM to judge the quality of responses.
+bo-eval-server is a thin WebSocket and REST API server for LLM agent evaluation. The server provides:
+- WebSocket server for agent connections and RPC communication
+- REST APIs for browser automation via Chrome DevTools Protocol (CDP)
+- Screenshot capture and page content retrieval
+
+**Evaluation orchestration and LLM-as-a-judge logic lives in the separate `evals/` Python project**, which calls these APIs.
 
 ## Commands
 
@@ -49,10 +54,11 @@ bo-eval-server is a WebSocket-based evaluation server for LLM agents that implem
 - Calls `Evaluate(request: String) -> String` method on connected agents
 - Supports `configure_llm` method for dynamic LLM provider configuration
 
-**LLM Evaluator** (`src/evaluator.js`)
-- Integrates with OpenAI API for LLM-as-a-judge functionality
-- Evaluates agent responses on multiple criteria (correctness, completeness, clarity, relevance, helpfulness)
-- Returns structured JSON evaluation with scores and reasoning
+**CDP Integration** (`src/lib/EvalServer.js`)
+- Direct Chrome DevTools Protocol communication
+- Screenshot capture via `Page.captureScreenshot`
+- Page content access via `Runtime.evaluate`
+- Tab management via `Target.createTarget` / `Target.closeTarget`
 
 **Logger** (`src/logger.js`)
 - Structured logging using Winston
@@ -62,12 +68,18 @@ bo-eval-server is a WebSocket-based evaluation server for LLM agents that implem
 
 ### Evaluation Flow
 
+**WebSocket RPC Flow:**
 1. Agent connects to WebSocket server
 2. Agent sends "ready" signal
 3. Server calls agent's `Evaluate` method with a task
 4. Agent processes task and returns response
-5. Server sends response to LLM judge for evaluation
-6. Results are logged as JSON with scores and detailed feedback
+5. Response is returned to caller (evaluation orchestration happens externally in `evals/`)
+
+**REST API Flow (for screenshot/content capture):**
+1. External caller (e.g., Python evals runner) requests screenshot via `POST /page/screenshot`
+2. Server uses CDP to capture screenshot
+3. Returns base64-encoded image data
+4. External caller uses screenshots for LLM-as-a-judge visual verification
 
 ### Project Structure
 
@@ -86,13 +98,29 @@ logs/                  # Log files (created automatically)
 └── evaluations.jsonl  # Evaluation results in JSON Lines format
 ```
 
+### Architecture: Separation of Concerns
+
+**eval-server (Node.js)**: Thin API layer
+- WebSocket server for agent connections
+- JSON-RPC 2.0 bidirectional communication
+- REST APIs for CDP operations (screenshots, page content, tab management)
+- NO evaluation logic, NO judges, NO test orchestration
+
+**evals (Python)**: Evaluation orchestration and judging
+- LLM judges (LLMJudge, VisionJudge) in `lib/judge.py`
+- Evaluation runners that call eval-server APIs
+- Test case definitions (YAML files in `data/`)
+- Result reporting and analysis
+
+This separation keeps eval-server focused on infrastructure while evals/ handles business logic.
+
 ### Key Features
 
 - **Bidirectional RPC**: Server can call methods on connected clients
-- **Multi-Provider LLM Support**: Support for OpenAI, Groq, OpenRouter, and LiteLLM providers
+- **Multi-Provider LLM Support**: Support for OpenAI, Groq, OpenRouter, and LiteLLM providers (configured by clients)
 - **Dynamic LLM Configuration**: Runtime configuration via `configure_llm` JSON-RPC method
 - **Per-Client Configuration**: Each connected client can have different LLM settings
-- **LLM-as-a-Judge**: Automated evaluation of agent responses using configurable LLM providers
+- **CDP Browser Automation**: Screenshot capture, page content access, tab management
 - **Concurrent Evaluations**: Support for multiple agents and parallel evaluations
 - **Structured Logging**: All interactions logged as JSON for analysis
 - **Interactive CLI**: Built-in CLI for testing and server management
@@ -277,21 +305,83 @@ Response format:
 }
 ```
 
+**Get Page Content**
+```bash
+POST /page/content
+Content-Type: application/json
+
+{
+  "clientId": "baseClientId",
+  "tabId": "targetTabId",
+  "format": "html"  // or "text"
+}
+```
+
+Retrieves the HTML or text content of a specific tab.
+
+Response format:
+```json
+{
+  "clientId": "baseClientId",
+  "tabId": "targetTabId",
+  "content": "<html>...</html>",
+  "format": "html",
+  "length": 12345,
+  "timestamp": 1234567890
+}
+```
+
+**Capture Screenshot**
+```bash
+POST /page/screenshot
+Content-Type: application/json
+
+{
+  "clientId": "baseClientId",
+  "tabId": "targetTabId",
+  "fullPage": false
+}
+```
+
+Captures a screenshot of a specific tab.
+
+Response format:
+```json
+{
+  "clientId": "baseClientId",
+  "tabId": "targetTabId",
+  "imageData": "data:image/png;base64,iVBORw0KG...",
+  "format": "png",
+  "fullPage": false,
+  "timestamp": 1234567890
+}
+```
+
 #### Implementation Architecture
 
 **Direct CDP Approach (Current)**
 
-Tab management is implemented using direct Chrome DevTools Protocol (CDP) communication:
+Tab management and page content access are implemented using direct Chrome DevTools Protocol (CDP) communication:
 
 1. Server discovers the CDP WebSocket endpoint via `http://localhost:9223/json/version`
-2. For each command (open/close), a new WebSocket connection is established to the CDP endpoint
+2. For each command, a new WebSocket connection is established to the CDP endpoint
 3. Commands are sent using JSON-RPC 2.0 format:
-   - `Target.createTarget` - Opens new tab
-   - `Target.closeTarget` - Closes existing tab
-4. WebSocket connection is closed after receiving the response
+   - **Browser-level operations** (use `sendCDPCommand`):
+     - `Target.createTarget` - Opens new tab
+     - `Target.closeTarget` - Closes existing tab
+   - **Tab-level operations** (use `sendCDPCommandToTarget`):
+     - `Runtime.evaluate` - Execute JavaScript to get page content
+     - `Page.captureScreenshot` - Capture screenshot of tab
+4. For tab-level operations, the server first attaches to the target, executes the command, then detaches
+5. WebSocket connection is closed after receiving the response
 
 Key implementation files:
-- `src/lib/EvalServer.js` - Contains `sendCDPCommand()`, `openTab()`, and `closeTab()` methods
+- `src/lib/EvalServer.js` - Contains CDP methods:
+  - `sendCDPCommand()` - Browser-level CDP commands
+  - `sendCDPCommandToTarget()` - Tab-level CDP commands (with attach/detach)
+  - `openTab()`, `closeTab()` - Tab management
+  - `getPageHTML()`, `getPageText()` - Page content access
+  - `captureScreenshot()` - Screenshot capture
 - `src/api-server.js` - REST API endpoints that delegate to EvalServer methods
 
 **Alternative Approach Considered**
@@ -314,6 +404,81 @@ The CDP endpoint is accessible at:
 - HTTP: `http://localhost:9223/json/version`
 - WebSocket: `ws://localhost:9223/devtools/browser/{browserId}`
 
+#### Usage Examples
+
+**Complete workflow: Open tab, get content, take screenshot, close tab**
+
+```bash
+# 1. Get list of clients
+curl -X GET http://localhost:8081/clients
+
+# 2. Open a new tab
+curl -X POST http://localhost:8081/tabs/open \
+  -H "Content-Type: application/json" \
+  -d '{"clientId":"9907fd8d-92a8-4a6a-bce9-458ec8c57306","url":"https://example.com"}'
+
+# Response: {"tabId":"ABC123DEF456",...}
+
+# 3. Get page HTML content
+curl -X POST http://localhost:8081/page/content \
+  -H "Content-Type: application/json" \
+  -d '{"clientId":"9907fd8d-92a8-4a6a-bce9-458ec8c57306","tabId":"ABC123DEF456","format":"html"}'
+
+# 4. Get page text content
+curl -X POST http://localhost:8081/page/content \
+  -H "Content-Type: application/json" \
+  -d '{"clientId":"9907fd8d-92a8-4a6a-bce9-458ec8c57306","tabId":"ABC123DEF456","format":"text"}'
+
+# 5. Capture screenshot
+curl -X POST http://localhost:8081/page/screenshot \
+  -H "Content-Type: application/json" \
+  -d '{"clientId":"9907fd8d-92a8-4a6a-bce9-458ec8c57306","tabId":"ABC123DEF456","fullPage":false}'
+
+# 6. Close the tab
+curl -X POST http://localhost:8081/tabs/close \
+  -H "Content-Type: application/json" \
+  -d '{"clientId":"9907fd8d-92a8-4a6a-bce9-458ec8c57306","tabId":"ABC123DEF456"}'
+```
+
+**LLM-as-a-Judge evaluation pattern**
+
+This workflow replicates the DevTools evaluation pattern using the eval-server:
+
+```bash
+# 1. Open tab and navigate to test URL
+TAB_RESPONSE=$(curl -X POST http://localhost:8081/tabs/open \
+  -H "Content-Type: application/json" \
+  -d '{"clientId":"CLIENT_ID","url":"https://www.w3.org/WAI/ARIA/apg/patterns/button/examples/button/"}')
+
+TAB_ID=$(echo $TAB_RESPONSE | jq -r '.tabId')
+
+# 2. Capture BEFORE screenshot
+BEFORE_SCREENSHOT=$(curl -X POST http://localhost:8081/page/screenshot \
+  -H "Content-Type: application/json" \
+  -d "{\"clientId\":\"CLIENT_ID\",\"tabId\":\"$TAB_ID\",\"fullPage\":false}")
+
+# 3. Execute agent action (via /v1/responses or custom endpoint)
+# ... agent performs action ...
+
+# 4. Capture AFTER screenshot
+AFTER_SCREENSHOT=$(curl -X POST http://localhost:8081/page/screenshot \
+  -H "Content-Type: application/json" \
+  -d "{\"clientId\":\"CLIENT_ID\",\"tabId\":\"$TAB_ID\",\"fullPage\":false}")
+
+# 5. Get page content for verification
+PAGE_CONTENT=$(curl -X POST http://localhost:8081/page/content \
+  -H "Content-Type: application/json" \
+  -d "{\"clientId\":\"CLIENT_ID\",\"tabId\":\"$TAB_ID\",\"format\":\"text\"}")
+
+# 6. Send to LLM judge with screenshots and content
+# (Use OpenAI Vision API or similar with before/after screenshots)
+
+# 7. Clean up
+curl -X POST http://localhost:8081/tabs/close \
+  -H "Content-Type: application/json" \
+  -d "{\"clientId\":\"CLIENT_ID\",\"tabId\":\"$TAB_ID\"}"
+```
+
 #### Current Limitations
 
 **⚠️ Known Issue: WebSocket Timeout**
@@ -333,6 +498,13 @@ The CDP endpoint is correctly discovered and accessible, but WebSocket messages 
 
 **Workaround**: Until this issue is resolved, tab management via the API is not functional. Manual CDP testing is required to diagnose the root cause.
 
+#### Features Implemented
+
+- ✅ Page HTML/text content access via CDP
+- ✅ Screenshot capture via CDP
+- ✅ Direct CDP communication for tab management
+- ✅ Tab-level CDP command execution with attach/detach
+
 #### Future Enhancements
 
 - Automatic tab registration in ClientManager when DevTools connects
@@ -340,6 +512,11 @@ The CDP endpoint is correctly discovered and accessible, but WebSocket messages 
 - Bulk tab operations
 - Tab metadata (title, URL, favicon)
 - Tab grouping and organization
+- Additional CDP methods:
+  - JavaScript execution with custom expressions
+  - DOM tree access (`DOM.getDocument`)
+  - MHTML snapshots (`Page.captureSnapshot`)
+  - PDF generation (`Page.printToPDF`)
 
 ### Configuration
 
