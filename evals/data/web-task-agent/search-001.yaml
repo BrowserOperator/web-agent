@@ -28,9 +28,9 @@ validation:
       - "Response includes a brief summary or conclusion statement"
     visual_verification:
       enabled: true
-      capture_before: true
-      capture_after: true
-      prompts:
+      capture_before_action: true
+      capture_after_action: true
+      verification_prompts:
         - "Verify search was completed and results page is showing"
         - "Check that search results are related to \"Chrome DevTools automation\""
         - "Confirm at least 3 search results are visible on the page"
