@@ -42,13 +42,11 @@ services:
       - CHROMIUM_FLAGS=--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/
     volumes:
       # Persist recordings in local directory
-      - "./recordings:/recordings"
+      - "./@mount/recordings:/recordings"
       # Mount Chromium flags file (will be created by run script)
-      - "./kernel-images/images/chromium-headful/.tmp/chromium/flags:/chromium/flags:ro"
+      - "./@mount/chromium-flags/flags:/chromium/flags:ro"
       # Persist Chromium data across container restarts (set CHROMIUM_DATA_HOST env var to customize path)
-      - "${CHROMIUM_DATA_HOST:-./chromium-data}:/data"
-      # Mount eval-server code for live updates during development
-      - "./eval-server/nodejs:/opt/eval-server"
+      - "${CHROMIUM_DATA_HOST:-./@mount/chromium-data}:/data"
     tmpfs:
       - /dev/shm:size=2g
       - /tmp

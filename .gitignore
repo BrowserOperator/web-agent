@@ -53,8 +53,11 @@ service-account-key.json
 *.bak
 *.backup
 
-# Chromium persistent data
+# Chromium persistent data (deprecated, now in @mount/)
 chromium-data/
+
+# All mounted volumes (recordings, chromium-data, eval-server, etc.)
+@mount/
 
 # Browser Operator DevTools build artifacts
 browser-operator-core/devtools-frontend/
@@ -65,6 +68,8 @@ browser-operator-core/.devtools-base-built
 # Eval server runtime files
 eval-server/nodejs/clients/
 eval-server/nodejs/logs/
+eval-server/nodejs/node_modules/
+eval-server/nodejs/.env
 
 # Evaluation screenshots
 evals/screenshots/

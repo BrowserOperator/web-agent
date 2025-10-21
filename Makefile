@@ -12,7 +12,7 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Chromium Data Persistence:"
-	@echo "  - Browser data persists to ./chromium-data by default"
+	@echo "  - Browser data persists to @mount/chromium-data by default"
 	@echo "  - Customize location: CHROMIUM_DATA_HOST=/path/to/data make run"
 	@echo "  - Disable persistence: CHROMIUM_DATA_HOST=\"\" make run"
 
