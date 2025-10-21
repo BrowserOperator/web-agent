@@ -26,7 +26,7 @@ services:
       # Eval Server WebSocket
       - "8082:8082"
       # WebRTC UDP port range for local development
-      - "56000-56100:56000-56100/udp"
+      - "57000-57100:57000-57100/udp"
     environment:
       # Display settings
       - DISPLAY_NUM=1
@@ -34,7 +34,7 @@ services:
       - WIDTH=1024
       # WebRTC settings
       - ENABLE_WEBRTC=true
-      - NEKO_WEBRTC_EPR=56000-56100
+      - NEKO_WEBRTC_EPR=57000-57100
       - NEKO_WEBRTC_NAT1TO1=127.0.0.1
       # Run as kernel user (not root)
       - RUN_AS_ROOT=false
