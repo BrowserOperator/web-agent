@@ -92,11 +92,16 @@ class APIClient:
             # Extract text from OpenAI Responses API format
             response_text = self._extract_response_text(response_data)
 
+            # Extract client/tab IDs from metadata (if present)
+            client_id, tab_id = self._extract_metadata(response_data)
+
             return {
                 "success": True,
                 "response": response_text,
                 "raw_response": response_data,
                 "execution_time_ms": execution_time_ms,
+                "client_id": client_id,
+                "tab_id": tab_id,
                 "error": None
             }
 
@@ -191,6 +196,25 @@ class APIClient:
 
         except Exception as e:
             return f"[Error extracting response: {e}]"
+
+    def _extract_metadata(self, response_data: Any) -> tuple[str | None, str | None]:
+        """
+        Extract clientId and tabId from response metadata.
+
+        Args:
+            response_data: Raw API response
+
+        Returns:
+            Tuple of (client_id, tab_id) or (None, None)
+        """
+        try:
+            if isinstance(response_data, list) and len(response_data) > 0:
+                message = response_data[0]
+                metadata = message.get('metadata', {})
+                return metadata.get('clientId'), metadata.get('tabId')
+        except Exception:
+            pass
+        return None, None
 
     def capture_screenshot(
         self,

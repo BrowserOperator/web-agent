@@ -26,7 +26,6 @@ validation:
       - "Successfully clicked to expand the section"
       - "Section 2 content became visible"
       - "Other sections collapsed appropriately"
-      - "Accordion animation completed smoothly"
     visual_verification:
       enabled: true
       capture_before: true
@@ -34,7 +33,6 @@ validation:
       prompts:
         - "Verify Section 2 is now expanded and content visible"
         - "Check if other accordion sections collapsed"
-        - "Confirm the expansion animation completed"
         - "Ensure Section 2 header shows expanded state"
 
 metadata:

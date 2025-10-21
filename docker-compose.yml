@@ -39,6 +39,8 @@ services:
       - "./kernel-images/images/chromium-headful/.tmp/chromium/flags:/chromium/flags:ro"
       # Persist Chromium data across container restarts (set CHROMIUM_DATA_HOST env var to customize path)
       - "${CHROMIUM_DATA_HOST:-./chromium-data}:/data"
+      # Mount eval-server code for live updates during development
+      - "./eval-server/nodejs:/opt/eval-server"
     tmpfs:
       - /dev/shm:size=2g
     restart: unless-stopped
