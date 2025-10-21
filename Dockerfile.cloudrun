@@ -259,7 +259,7 @@ COPY kernel-images/images/chromium-headful/image-chromium/ /
 COPY kernel-images/images/chromium-headful/start-chromium.sh /images/chromium-headful/start-chromium.sh
 RUN chmod +x /images/chromium-headful/start-chromium.sh
 COPY kernel-images/images/chromium-headful/supervisord.conf /etc/supervisor/supervisord.conf
-COPY supervisord-cloudrun.conf /etc/supervisor/supervisord-cloudrun.conf
+COPY deployment/cloudrun/supervisord-cloudrun.conf /etc/supervisor/supervisord-cloudrun.conf
 COPY kernel-images/images/chromium-headful/supervisor/services/ /etc/supervisor/conf.d/services/
 
 # Copy the kernel-images API binary
@@ -291,7 +291,7 @@ RUN chown -R kernel:kernel /opt/eval-server
 
 # Cloud Run specific: wrapper scripts (nginx config is inline)
 # DO NOT copy nginx.conf to avoid auto-start conflicts
-COPY cloudrun-wrapper.sh /cloudrun-wrapper.sh
+COPY deployment/cloudrun/cloudrun-wrapper.sh /cloudrun-wrapper.sh
 COPY twilio/twilio-credential-updater.sh /twilio-credential-updater.sh
 RUN chmod +x /cloudrun-wrapper.sh /twilio-credential-updater.sh
 

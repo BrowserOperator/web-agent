@@ -78,7 +78,7 @@ rebuild: init ## Force complete rebuild (including DevTools)
 run: ## Run extended container with DevTools (interactive)
 	@echo "🚀 Starting extended kernel-browser with DevTools..."
 	@if [ -n "$(URLS)" ]; then echo "📄 Opening URLs: $(URLS)"; fi
-	@./run-local.sh
+	@./deployment/local/run-local.sh
 
 compose-up: build ## Start with docker-compose (background)
 	@echo "🚀 Starting with docker-compose..."

@@ -318,10 +318,10 @@ gcloud auth application-default login
 
 ```bash
 # Automated deployment (recommended)
-./deploy.sh
+./deployment/cloudrun/deploy.sh
 
 # Or with custom settings
-./deploy.sh --project your-project-id --region us-central1
+./deployment/cloudrun/deploy.sh --project your-project-id --region us-central1
 ```
 
 ### Access Cloud Run Service
@@ -435,6 +435,24 @@ For production WebRTC, configure a TURN server:
 web-agent/
 ├── browser-operator-core/      # Submodule: DevTools frontend source
 ├── kernel-images/              # Submodule: Base browser environment
+├── deployment/                 # Deployment configurations
+│   ├── cloudrun/               # Google Cloud Run deployment
+│   │   ├── deploy.sh           # Cloud deployment script
+│   │   ├── cloudbuild.yaml     # CI/CD pipeline config
+│   │   ├── service.yaml        # Cloud Run service definition
+│   │   ├── service-secrets.yaml # Service with Secret Manager
+│   │   ├── cloudrun-wrapper.sh # Cloud Run entrypoint
+│   │   ├── cloudrun-kernel-wrapper.sh # Alternative wrapper
+│   │   ├── supervisord-cloudrun.conf # Supervisor for Cloud Run
+│   │   └── nginx.conf          # Reverse proxy config
+│   └── local/                  # Local deployment
+│       └── run-local.sh        # Interactive Docker run script
+├── nginx/                      # Nginx configurations
+│   └── nginx-devtools.conf     # DevTools nginx config
+├── scripts/                    # Utility scripts
+│   ├── init-container.sh       # Auto-cleanup of lock files
+│   └── test-eval-server.sh     # Eval server build test
+├── supervisor/services/        # Service configs (overrides)
 ├── eval-server/
 │   └── nodejs/                 # Eval server (use this, NOT submodule)
 │       ├── src/                # API server, evaluation server, lib
@@ -444,19 +462,11 @@ web-agent/
 │   ├── run.py                  # Python evaluation runner
 │   ├── lib/judge.py            # Judge implementations
 │   └── data/                   # Evaluation YAML files
-├── scripts/
-│   └── init-container.sh       # Auto-cleanup of lock files
-├── supervisor/services/        # Service configs (overrides)
-├── Dockerfile.local            # Main Docker build
+├── Dockerfile.local            # Main Docker build (local dev)
 ├── Dockerfile.devtools         # DevTools frontend build
-├── docker-compose.yml          # Local deployment
-├── run-local.sh                # Interactive mode
-├── Makefile                    # Build commands
 ├── Dockerfile.cloudrun         # Cloud Run build
-├── nginx.conf                  # Reverse proxy config
-├── service.yaml                # Cloud Run service config
-├── cloudbuild.yaml             # CI/CD pipeline
-├── deploy.sh                   # Cloud deployment script
+├── docker-compose.yml          # Local deployment config
+├── Makefile                    # Build commands
 ├── CLAUDE.md                   # Technical documentation
 └── README.md                   # This file
 ```
@@ -541,13 +551,13 @@ The `cloudbuild.yaml` provides:
 
 ```bash
 # Normal build (with cache) - recommended for development
-gcloud builds submit --config cloudbuild.yaml
+gcloud builds submit --config deployment/cloudrun/cloudbuild.yaml
 
 # Force rebuild without cache - use when dependencies change
-gcloud builds submit --config cloudbuild.yaml --substitutions=_NO_CACHE=true
+gcloud builds submit --config deployment/cloudrun/cloudbuild.yaml --substitutions=_NO_CACHE=true
 
 # Automated deployment with Twilio TURN server setup
-./deploy.sh
+./deployment/cloudrun/deploy.sh
 ```
 
 ### Cache Control

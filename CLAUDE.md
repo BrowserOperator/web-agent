@@ -53,6 +53,28 @@ supervisord
 web-agent/
 ├── browser-operator-core/      # Submodule: DevTools frontend source
 ├── kernel-images/              # Submodule: Base browser environment
+├── deployment/                 # Deployment configurations
+│   ├── cloudrun/               # Google Cloud Run deployment
+│   │   ├── deploy.sh           # Cloud deployment script
+│   │   ├── cloudbuild.yaml     # CI/CD pipeline config
+│   │   ├── service.yaml        # Cloud Run service definition
+│   │   ├── service-secrets.yaml # Service with Secret Manager
+│   │   ├── cloudrun-wrapper.sh # Cloud Run entrypoint
+│   │   ├── cloudrun-kernel-wrapper.sh # Alternative wrapper
+│   │   ├── supervisord-cloudrun.conf # Supervisor for Cloud Run
+│   │   └── nginx.conf          # Reverse proxy config
+│   └── local/                  # Local deployment
+│       └── run-local.sh        # Interactive Docker run script
+├── nginx/                      # Nginx configurations
+│   └── nginx-devtools.conf     # DevTools nginx config
+├── scripts/                    # Utility scripts
+│   ├── init-container.sh       # Auto-cleanup of lock files
+│   └── test-eval-server.sh     # Eval server build test
+├── supervisor/services/        # Service configs (override defaults)
+│   ├── chromium.conf           # Auto-open DevTools
+│   ├── eval-server.conf        # Eval server with CDP_PORT=9223
+│   ├── neko.conf
+│   └── nginx-devtools.conf
 ├── eval-server/
 │   └── nodejs/                 # Eval server source (use this, NOT submodule)
 │       ├── src/
@@ -65,20 +87,13 @@ web-agent/
 │   ├── run.py                  # Python evaluation runner
 │   ├── lib/judge.py            # LLMJudge, VisionJudge, SimpleJudge
 │   └── data/                   # Evaluation YAML files
-├── scripts/
-│   ├── init-container.sh       # Auto-cleanup of lock files
-│   └── cleanup-chromium-locks.sh
-├── supervisor/services/        # Service configs (override defaults)
-│   ├── chromium.conf           # Auto-open DevTools
-│   ├── eval-server.conf        # Eval server with CDP_PORT=9223
-│   ├── neko.conf
-│   └── nginx-devtools.conf
-├── Dockerfile.local            # Main Docker build
+├── Dockerfile.local            # Main Docker build (local dev)
 ├── Dockerfile.devtools         # DevTools frontend build
+├── Dockerfile.cloudrun         # Cloud Run build
 ├── docker-compose.yml          # Local deployment config
-├── run-local.sh                # Interactive mode startup
 ├── Makefile                    # Build/deployment commands
-└── README.md
+├── CLAUDE.md                   # This file
+└── README.md                   # User documentation
 ```
 
 ## Key Files and What They Do
@@ -144,7 +159,7 @@ Key targets:
 - `make stop` - Stop all containers
 - `make clean` - Clean up everything
 
-### run-local.sh
+### deployment/local/run-local.sh
 Interactive Docker run script that:
 - Sources kernel-images common build variables
 - Creates local recordings directory
@@ -160,6 +175,24 @@ Interactive Docker run script that:
 - Eval server code is NOT volume-mounted (baked into image)
 - More flexible for custom configurations via environment variables
 - Better for seeing startup issues and debugging
+
+### deployment/cloudrun/
+Contains all Google Cloud Run deployment files:
+- `deploy.sh` - Automated deployment script with Twilio TURN setup
+- `cloudbuild.yaml` - CI/CD pipeline for Cloud Build
+- `service.yaml` / `service-secrets.yaml` - Cloud Run service definitions
+- `cloudrun-wrapper.sh` - Cloud Run container entrypoint
+- `supervisord-cloudrun.conf` - Supervisor configuration for Cloud Run
+- `nginx.conf` - Reverse proxy for Cloud Run port requirements
+
+### nginx/
+Nginx configuration files:
+- `nginx-devtools.conf` - DevTools UI server config (used by Dockerfile.local)
+
+### scripts/
+Utility scripts:
+- `init-container.sh` - Automatic lock file cleanup on container start
+- `test-eval-server.sh` - Test eval-server Docker build stage
 
 ## Common Issues and Solutions
 

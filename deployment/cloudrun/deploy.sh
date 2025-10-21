@@ -3,7 +3,15 @@
 set -euo pipefail
 
 # Kernel-Browser Cloud Run Deployment Script
+# NOTE: This script should be run from the project root directory
 echo "🚀 Starting kernel-browser deployment to Google Cloud Run..."
+
+# Verify we're in the project root
+if [ ! -f "docker-compose.yml" ]; then
+    echo "❌ Error: This script must be run from the project root directory"
+    echo "   Expected to find docker-compose.yml in current directory"
+    exit 1
+fi
 
 # Configuration
 PROJECT_ID="${PROJECT_ID:-}"
@@ -298,7 +306,7 @@ deploy_with_cloudbuild() {
     
     # Submit build
     gcloud builds submit \
-        --config=cloudbuild.yaml \
+        --config=deployment/cloudrun/cloudbuild.yaml \
         --project="$PROJECT_ID" \
         --timeout="2h" \
         --machine-type="e2-highcpu-32"
@@ -321,11 +329,11 @@ deploy_local() {
     info "Deploying to Cloud Run..."
     
     # Choose appropriate service.yaml based on secrets availability
-    local service_file="service.yaml"
+    local service_file="deployment/cloudrun/service.yaml"
     if [ "${USE_SECRETS:-false}" = "true" ]; then
         if gcloud secrets describe twilio-account-sid --project="$PROJECT_ID" &>/dev/null && \
            gcloud secrets describe twilio-auth-token --project="$PROJECT_ID" &>/dev/null; then
-            service_file="service-secrets.yaml"
+            service_file="deployment/cloudrun/service-secrets.yaml"
             info "Using service-secrets.yaml with Secret Manager references"
         else
             warning "Secrets not found, falling back to standard service.yaml"

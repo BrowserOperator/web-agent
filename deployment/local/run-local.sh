@@ -5,9 +5,10 @@ set -e -o pipefail
 
 echo "🚀 Starting kernel-browser (EXTENDED) locally using kernel-images run system..."
 
-# Ensure we're in the right directory
+# Get script directory and project root
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-cd "$SCRIPT_DIR"
+PROJECT_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
+cd "$PROJECT_ROOT"
 
 # Check if kernel-images submodule exists
 if [ ! -d "kernel-images" ] || [ ! -f "kernel-images/images/chromium-headful/run-docker.sh" ]; then
@@ -17,7 +18,7 @@ if [ ! -d "kernel-images" ] || [ ! -f "kernel-images/images/chromium-headful/run
 fi
 
 # Create local recordings directory
-mkdir -p "$SCRIPT_DIR/recordings"
+mkdir -p "$PROJECT_ROOT/recordings"
 
 # Change to kernel-images directory
 cd kernel-images/images/chromium-headful
@@ -45,7 +46,7 @@ echo "   Container: $NAME"
 echo "   WebRTC: $ENABLE_WEBRTC"
 echo "   DevTools UI: enabled"
 echo "   Run as root: $RUN_AS_ROOT"
-echo "   Recordings: $SCRIPT_DIR/recordings"
+echo "   Recordings: $PROJECT_ROOT/recordings"
 echo ""
 
 echo "🏃 Starting extended container with kernel-images run system..."
@@ -57,7 +58,7 @@ echo "🏃 Starting extended container with kernel-images run system..."
 source ../../shared/ensure-common-build-run-vars.sh chromium-headful
 
 # Directory on host where recordings will be saved
-HOST_RECORDINGS_DIR="$SCRIPT_DIR/recordings"
+HOST_RECORDINGS_DIR="$PROJECT_ROOT/recordings"
 mkdir -p "$HOST_RECORDINGS_DIR"
 
 # Chromium data directory for persistence
@@ -68,7 +69,7 @@ if [[ "${CHROMIUM_DATA_HOST+set}" == "set" && -z "$CHROMIUM_DATA_HOST" ]]; then
   CHROMIUM_DATA_VOLUME=""
 else
   # Default to ./chromium-data if not specified
-  CHROMIUM_DATA_HOST="${CHROMIUM_DATA_HOST:-$SCRIPT_DIR/chromium-data}"
+  CHROMIUM_DATA_HOST="${CHROMIUM_DATA_HOST:-$PROJECT_ROOT/chromium-data}"
   echo "🗂️  Using persistent Chromium data directory: $CHROMIUM_DATA_HOST"
   CHROMIUM_DATA_REAL=$(realpath "$CHROMIUM_DATA_HOST" 2>/dev/null || echo "")
   if [[ -z "$CHROMIUM_DATA_REAL" ]]; then

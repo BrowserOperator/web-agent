@@ -221,7 +221,7 @@ COPY --from=server-builder /out/kernel-images-api /usr/local/bin/kernel-images-a
 COPY --from=devtools-source /usr/share/nginx/html /usr/share/nginx/devtools
 
 # Create DevTools nginx configuration
-COPY nginx-devtools.conf /etc/nginx/sites-available/devtools
+COPY nginx/nginx-devtools.conf /etc/nginx/sites-available/devtools
 RUN ln -s /etc/nginx/sites-available/devtools /etc/nginx/sites-enabled/devtools && \
     rm /etc/nginx/sites-enabled/default
 
