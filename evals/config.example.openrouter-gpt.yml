@@ -1,27 +1,27 @@
 # Evaluation Framework Configuration
 # This configuration is shared across all evaluation runner scripts
+# Example configuration for OpenRouter with GPT models
 
 # API endpoint for the evaluation server
 api_endpoint: "http://localhost:8080"
 
 # Model configurations for running evaluations
 # These models are sent to the agent for processing requests
-# See config.example.*.yml files for other provider/model configurations
 
 main_model:
-  provider: "openai"
-  model_name: "gpt-5-mini"
-  api_key: "${OPENAI_API_KEY}"
+  provider: "openrouter"
+  model_name: "openai/gpt-oss-20b:free"
+  api_key: "${OPENROUTER_API_KEY}"
 
 mini_model:
-  provider: "openai"
-  model_name: "gpt-5-nano"
-  api_key: "${OPENAI_API_KEY}"
+  provider: "openrouter"
+  model_name: "openai/gpt-oss-20b:free"
+  api_key: "${OPENROUTER_API_KEY}"
 
 nano_model:
-  provider: "openai"
-  model_name: "gpt-5-nano"
-  api_key: "${OPENAI_API_KEY}"
+  provider: "openrouter"
+  model_name: "openai/gpt-oss-20b:free"
+  api_key: "${OPENROUTER_API_KEY}"
 
 # Model configuration for judging evaluation responses
 # This model is used locally to assess the quality of agent responses
