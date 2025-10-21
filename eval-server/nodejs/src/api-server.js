@@ -422,8 +422,8 @@ class APIServer {
       // Extract the response text from the result
       const responseText = this.extractResponseText(result);
 
-      // Format in OpenAI Responses API format
-      return this.formatOpenAIResponse(responseText);
+      // Format in OpenAI-compatible Responses API format with tab metadata
+      return this.formatResponse(responseText, tabResult.compositeClientId.split(':')[0], tabResult.tabId);
 
     } catch (error) {
       logger.error('Error handling responses request:', error);
@@ -624,12 +624,15 @@ class APIServer {
   }
 
   /**
-   * Format response in OpenAI Responses API format
+   * Format response in OpenAI-compatible Responses API format
    */
-  formatOpenAIResponse(responseText) {
+  formatResponse(responseText, clientId = null, tabId = null) {
     const messageId = `msg_${uuidv4().replace(/-/g, '')}`;
-    
-    return [
+
+    // Debug: log the parameters
+    logger.debug('formatResponse called with:', { clientId, tabId, hasClientId: !!clientId, hasTabId: !!tabId });
+
+    const response = [
       {
         id: messageId,
         type: 'message',
@@ -643,6 +646,19 @@ class APIServer {
         ]
       }
     ];
+
+    // Add metadata if clientId and tabId are provided
+    if (clientId && tabId) {
+      response[0].metadata = {
+        clientId,
+        tabId
+      };
+      logger.debug('Metadata added to response:', response[0].metadata);
+    } else {
+      logger.debug('Metadata NOT added - clientId or tabId missing');
+    }
+
+    return response;
   }
 
   sendResponse(res, statusCode, data) {

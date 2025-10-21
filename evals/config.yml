@@ -9,12 +9,12 @@ api_endpoint: "http://localhost:8080"
 
 main_model:
   provider: "openai"
-  model_name: "gpt-5"
+  model_name: "gpt-5-mini"
   api_key: "${OPENAI_API_KEY}"
 
 mini_model:
   provider: "openai"
-  model_name: "gpt-5-mini"
+  model_name: "gpt-5-nano"
   api_key: "${OPENAI_API_KEY}"
 
 nano_model:
@@ -30,12 +30,12 @@ nano_model:
 
 # mini_model:
 #   provider: "openrouter"
-#   model_name: "x-ai/grok-4-fast:free"
+#   model_name: "openai/gpt-oss-20b:free"
 #   api_key: "${OPENROUTER_API_KEY}"
 
 # nano_model:
 #   provider: "openrouter"
-#   model_name: "x-ai/grok-4-fast:free"
+#   model_name: "openai/gpt-oss-20b:free"
 #   api_key: "${OPENROUTER_API_KEY}"
 
 # Model configuration for judging evaluation responses

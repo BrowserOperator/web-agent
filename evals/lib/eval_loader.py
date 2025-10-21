@@ -106,6 +106,46 @@ class Evaluation:
         llm_judge = self.validation.get('llm_judge', {})
         return llm_judge.get('model', 'gpt-4.1-mini')
 
+    def requires_vision_judge(self) -> bool:
+        """
+        Check if this evaluation requires vision judge (visual verification).
+
+        Returns:
+            True if visual verification is enabled, False otherwise
+        """
+        if self.validation_type != 'llm-judge':
+            return False
+
+        llm_judge = self.validation.get('llm_judge', {})
+        visual_verification = llm_judge.get('visual_verification', {})
+        return visual_verification.get('enabled', False)
+
+    def get_visual_verification_config(self) -> Optional[Dict[str, Any]]:
+        """
+        Get visual verification configuration.
+
+        Returns:
+            Visual verification config dict or None if not enabled
+        """
+        if not self.requires_vision_judge():
+            return None
+
+        llm_judge = self.validation.get('llm_judge', {})
+        return llm_judge.get('visual_verification', {})
+
+    def get_verification_prompts(self) -> List[str]:
+        """
+        Get visual verification prompts.
+
+        Returns:
+            List of verification prompt strings for vision judge
+        """
+        visual_config = self.get_visual_verification_config()
+        if not visual_config:
+            return []
+
+        return visual_config.get('prompts', [])
+
     def get_target_url(self) -> Optional[str]:
         """
         Get the target URL for this evaluation.
