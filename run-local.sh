@@ -37,7 +37,7 @@ export UKC_METRO="dummy-metro-for-local-run"
 
 
 # Local-friendly Chrome flags (less restrictive than cloud) + custom DevTools frontend
-export CHROMIUM_FLAGS="--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/"
+export CHROMIUM_FLAGS="--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/ --auto-open-devtools-for-tabs"
 
 echo "🔧 Configuration:"
 echo "   Image: $IMAGE"
@@ -91,18 +91,8 @@ else
   CHROMIUM_DATA_VOLUME="${CHROMIUM_DATA_REAL}:/data"
 fi
 
-# Build Chromium flags file and mount
-CHROMIUM_FLAGS_DEFAULT="--user-data-dir=/data/user-data --disable-dev-shm-usage --disable-gpu --start-maximized --disable-software-rasterizer --remote-allow-origins=*"
-if [[ "$RUN_AS_ROOT" == "true" ]]; then
-  CHROMIUM_FLAGS_DEFAULT="$CHROMIUM_FLAGS_DEFAULT --no-sandbox --no-zygote"
-fi
-CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-$CHROMIUM_FLAGS_DEFAULT}"
-rm -rf .tmp/chromium
-mkdir -p .tmp/chromium
-FLAGS_FILE="$(pwd)/.tmp/chromium/flags"
-echo "$CHROMIUM_FLAGS" > "$FLAGS_FILE"
-
 # Build docker run argument list
+# Note: CHROMIUM_FLAGS is already set above (line 40) with custom DevTools frontend
 RUN_ARGS=(
   --name "$NAME"
   --privileged
@@ -120,7 +110,7 @@ RUN_ARGS=(
   -e HEIGHT=768
   -e WIDTH=1024
   -e RUN_AS_ROOT="$RUN_AS_ROOT"
-  --mount type=bind,src="$FLAGS_FILE",dst=/chromium/flags,ro
+  -e CHROMIUM_FLAGS="$CHROMIUM_FLAGS"
 )
 
 # Add Chromium data volume if specified

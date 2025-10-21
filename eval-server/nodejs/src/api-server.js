@@ -92,11 +92,8 @@ class APIServer {
 
       let result;
 
-      // Handle dynamic client evaluations route
-      if (pathname.startsWith('/clients/') && pathname.endsWith('/evaluations')) {
-        const clientId = pathname.split('/')[2];
-        result = this.getClientEvaluations(clientId);
-      } else if (pathname.startsWith('/clients/') && pathname.endsWith('/tabs')) {
+      // Handle dynamic client tabs route
+      if (pathname.startsWith('/clients/') && pathname.endsWith('/tabs')) {
         // Handle dynamic client tabs route
         const clientId = pathname.split('/')[2];
         result = this.getClientTabsById(clientId);
@@ -108,14 +105,6 @@ class APIServer {
 
           case '/clients':
             result = this.getClients();
-            break;
-
-          case '/evaluate':
-            if (method !== 'POST') {
-              this.sendError(res, 405, 'Method not allowed');
-              return;
-            }
-            result = await this.triggerEvaluation(JSON.parse(body));
             break;
 
           case '/tabs/open':
@@ -211,27 +200,6 @@ class APIServer {
     });
   }
 
-  getClientEvaluations(clientId) {
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    const evaluations = this.evaluationServer.getClientManager().getClientEvaluations(clientId);
-    return {
-      clientId,
-      evaluations: evaluations.map(evaluation => ({
-        id: evaluation.id,
-        name: evaluation.name,
-        description: evaluation.description,
-        tool: evaluation.tool,
-        status: evaluation.status || 'pending',
-        enabled: evaluation.enabled !== false,
-        lastRun: evaluation.lastRun,
-        lastResult: evaluation.lastResult
-      }))
-    };
-  }
-
   getClientTabsById(clientId) {
     if (!clientId) {
       throw new Error('Client ID is required');
@@ -258,64 +226,6 @@ class APIServer {
         remoteAddress: tab.connection?.remoteAddress || 'unknown'
       }))
     };
-  }
-
-  async triggerEvaluation(payload) {
-    const { clientId, evaluationId, runAll = false } = payload;
-
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    // Check if client is connected
-    const connection = this.evaluationServer.connectedClients.get(clientId);
-    if (!connection || !connection.ready) {
-      throw new Error(`Client '${clientId}' is not connected or not ready`);
-    }
-
-    if (runAll) {
-      // Run all evaluations for the client
-      const evaluations = this.evaluationServer.getClientManager().getClientEvaluations(clientId);
-      const results = [];
-
-      for (const evaluation of evaluations) {
-        try {
-          this.evaluationServer.getClientManager().updateEvaluationStatus(clientId, evaluation.id, 'pending');
-          await this.evaluationServer.executeEvaluation(connection, evaluation);
-          results.push({ id: evaluation.id, status: 'completed' });
-        } catch (error) {
-          results.push({ id: evaluation.id, status: 'failed', error: error.message });
-        }
-      }
-
-      return {
-        clientId,
-        type: 'batch',
-        results
-      };
-    }
-      // Run specific evaluation
-      if (!evaluationId) {
-        throw new Error('Evaluation ID is required when runAll is false');
-      }
-
-      const evaluation = this.evaluationServer.getClientManager().getClientEvaluations(clientId)
-        .find(e => e.id === evaluationId);
-
-      if (!evaluation) {
-        throw new Error(`Evaluation '${evaluationId}' not found for client '${clientId}'`);
-      }
-
-      this.evaluationServer.getClientManager().updateEvaluationStatus(clientId, evaluationId, 'pending');
-      await this.evaluationServer.executeEvaluation(connection, evaluation);
-
-      return {
-        clientId,
-        evaluationId,
-        type: 'single',
-        status: 'completed'
-      };
-
   }
 
   async openTab(payload) {

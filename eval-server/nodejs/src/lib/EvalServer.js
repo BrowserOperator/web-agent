@@ -10,7 +10,6 @@ import { ClientManager } from '../client-manager.js';
 import { CONFIG, validateConfig } from '../config.js';
 import logger, { logConnection, logEvaluation } from '../logger.js';
 import { RpcClient } from '../rpc-client.js';
-import { EvaluationLoader } from './EvaluationLoader.js';
 
 /**
  * EvalServer - A library for programmatically managing evaluation servers
@@ -51,14 +50,12 @@ export class EvalServer extends EventEmitter {
       port: options.port || CONFIG.server.port,
       authKey: options.authKey || null,
       clientsDir: options.clientsDir || './clients',
-      evalsDir: options.evalsDir || './evals',
       ...options
     };
-    
+
     // Internal state
     this.connectedClients = new Map();
-    this.clientManager = new ClientManager(this.config.clientsDir, this.config.evalsDir);
-    this.evaluationLoader = new EvaluationLoader(this.config.evalsDir);
+    this.clientManager = new ClientManager(this.config.clientsDir);
     this.judge = null; // Judge is optional - can be set later
     this.wss = null;
     this.isRunning = false;
@@ -180,20 +177,6 @@ export class EvalServer extends EventEmitter {
       host: this.config.host,
       port: this.config.port
     };
-  }
-
-  /**
-   * Load evaluations from YAML files
-   */
-  async loadEvaluations(evalsDir = './evals') {
-    return this.evaluationLoader.loadFromDirectory(evalsDir);
-  }
-
-  /**
-   * Get all available evaluations
-   */
-  getEvaluations() {
-    return this.evaluationLoader.getAllEvaluations();
   }
 
   /**
@@ -630,12 +613,6 @@ export class EvalServer extends EventEmitter {
       progress,
       message
     });
-
-    this.clientManager.updateEvaluationStatus(
-      connection.clientId,
-      evaluationId,
-      status
-    );
   }
 
   /**
@@ -709,13 +686,6 @@ export class EvalServer extends EventEmitter {
         tool: evaluation.tool
       });
 
-      // Update status to running
-      this.clientManager.updateEvaluationStatus(
-        connection.clientId,
-        evaluation.id,
-        'running'
-      );
-
       // Prepare model configuration - use client config if available, otherwise evaluation config, otherwise defaults
       let modelConfig = evaluation.model || {};
 
@@ -773,17 +743,6 @@ export class EvalServer extends EventEmitter {
         evaluation.timeout || 45000
       );
 
-      // Update evaluation status
-      this.clientManager.updateEvaluationStatus(
-        connection.clientId,
-        evaluation.id,
-        'completed',
-        {
-          response,
-          duration: Date.now() - startTime
-        }
-      );
-
       // Log evaluation
       logEvaluation({
         evaluationId: evaluation.id,
@@ -803,16 +762,6 @@ export class EvalServer extends EventEmitter {
         evaluationId: evaluation.id,
         error: error.message
       });
-
-      this.clientManager.updateEvaluationStatus(
-        connection.clientId,
-        evaluation.id,
-        'failed',
-        {
-          error: error.message,
-          duration: Date.now() - startTime
-        }
-      );
 
       throw error;
     }

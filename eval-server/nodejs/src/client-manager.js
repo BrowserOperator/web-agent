@@ -5,74 +5,17 @@ import { v4 as uuidv4 } from 'uuid';
 import logger from './logger.js';
 
 class ClientManager {
-  constructor(clientsDir = './clients', evalsDir = './evals') {
+  constructor(clientsDir = './clients') {
     this.clientsDir = path.resolve(clientsDir);
-    this.evalsDir = path.resolve(evalsDir);
     this.clients = new Map();
-    this.evaluations = new Map(); // clientId -> evaluations array
-    this.configDefaults = null; // Config.yaml defaults for model precedence
     this.activeTabs = new Map(); // clientId -> Set of { tabId, connection, metadata }
-    
+
     // Ensure directories exist
     if (!fs.existsSync(this.clientsDir)) {
       fs.mkdirSync(this.clientsDir, { recursive: true });
     }
-    if (!fs.existsSync(this.evalsDir)) {
-      fs.mkdirSync(this.evalsDir, { recursive: true });
-    }
-    
-    this.loadConfigDefaults();
+
     this.loadAllClients();
-    this.loadAllEvaluations();
-  }
-
-  /**
-   * Load default model configuration from config.yaml
-   */
-  loadConfigDefaults() {
-    try {
-      const configPath = path.resolve(this.evalsDir, 'config.yaml');
-      if (fs.existsSync(configPath)) {
-        const configContent = fs.readFileSync(configPath, 'utf8');
-        this.configDefaults = yaml.load(configContent);
-        logger.info('Loaded config.yaml defaults:', this.configDefaults);
-      } else {
-        // Don't warn about missing config.yaml - it's optional
-        this.configDefaults = null;
-      }
-    } catch (error) {
-      logger.error('Failed to load config.yaml:', error);
-      this.configDefaults = null;
-    }
-  }
-
-  /**
-   * Apply model precedence: API calls OR test YAML models override config.yaml fallback
-   * Precedence logic:
-   * 1. API calls OR individual test YAML models (highest priority - either overrides everything)
-   * 2. config.yaml defaults (fallback only when neither API nor test YAML specify models)
-   * @param {Object} evaluation - Evaluation object with optional model configuration
-   * @param {import('../types/model-config').ModelConfig} apiModelOverride - Optional API model override
-   * @returns {import('../types/model-config').ModelConfig} Final model configuration
-   */
-  applyModelPrecedence(evaluation, apiModelOverride = null) {
-    // Check if API override is provided
-    if (apiModelOverride) {
-      // API model override takes precedence over everything
-      // Ensure nested format is used
-      return apiModelOverride;
-    }
-
-    // Check if evaluation has its own model config from YAML
-    const testModel = evaluation.model;
-    if (testModel && Object.keys(testModel).length > 0) {
-      // Test YAML model takes precedence
-      // Ensure nested format is returned
-      return testModel;
-    }
-
-    // Neither API nor test YAML specified models, use config.yaml defaults only
-    return this.configDefaults?.model || {};
   }
 
   /**
@@ -130,78 +73,9 @@ class ClientManager {
       settings: config.settings || {},
       yamlPath
     });
-    
-    // Note: Evaluations are now loaded separately from the evals directory
-    // Initialize empty evaluations array for this client
-    if (!this.evaluations.has(clientId)) {
-      this.evaluations.set(clientId, []);
-    }
-    
+
     logger.info(`Loaded client ${clientId}`);
     return config;
-  }
-
-  /**
-   * Load all evaluations from the evals directory structure
-   */
-  loadAllEvaluations() {
-    try {
-      // Clear existing evaluations to prevent duplicates on reload
-      this.evaluations.clear();
-      
-      // Find all category directories
-      const categories = fs.readdirSync(this.evalsDir)
-        .filter(dir => fs.statSync(path.join(this.evalsDir, dir)).isDirectory());
-      
-      let totalEvaluations = 0;
-      
-      for (const category of categories) {
-        const categoryDir = path.join(this.evalsDir, category);
-        const evalFiles = fs.readdirSync(categoryDir)
-          .filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
-        
-        for (const file of evalFiles) {
-          try {
-            const evalPath = path.join(categoryDir, file);
-            const yamlContent = fs.readFileSync(evalPath, 'utf8');
-            const evaluation = yaml.load(yamlContent);
-            
-            if (evaluation.enabled !== false) {
-              // Apply model precedence: config.yaml overrides individual test models
-              const resolvedModel = this.applyModelPrecedence(evaluation);
-              
-              // Add evaluation to all clients for now
-              // In the future, you might want to have client-specific evaluation assignments
-              for (const [clientId] of this.clients) {
-                const clientEvals = this.evaluations.get(clientId) || [];
-                clientEvals.push({
-                  ...evaluation,
-                  model: resolvedModel, // Use resolved model with precedence applied
-                  clientId,
-                  status: 'pending',
-                  category,
-                  filePath: evalPath
-                });
-                this.evaluations.set(clientId, clientEvals);
-              }
-              totalEvaluations++;
-            }
-          } catch (error) {
-            logger.error(`Failed to load evaluation ${file}:`, error);
-          }
-        }
-      }
-      
-      // Update the client evaluation counts
-      for (const [clientId] of this.clients) {
-        const evalCount = this.evaluations.get(clientId)?.length || 0;
-        logger.info(`Loaded client ${clientId} with ${evalCount} evaluations`);
-      }
-      
-      logger.info(`Loaded ${totalEvaluations} evaluations from ${categories.length} categories`);
-    } catch (error) {
-      logger.error('Failed to load evaluations:', error);
-    }
   }
 
   /**
@@ -225,8 +99,7 @@ class ClientManager {
     
     return {
       success: true,
-      clientName: client.name,
-      evaluationsCount: this.evaluations.get(clientId)?.length || 0
+      clientName: client.name
     };
   }
 
@@ -235,38 +108,6 @@ class ClientManager {
    */
   getClient(clientId) {
     return this.clients.get(clientId);
-  }
-
-  /**
-   * Get evaluations for a client
-   */
-  getClientEvaluations(clientId) {
-    return this.evaluations.get(clientId) || [];
-  }
-
-  /**
-   * Get next pending evaluation for a client
-   */
-  getNextEvaluation(clientId) {
-    const evaluations = this.evaluations.get(clientId) || [];
-    return evaluations.find(e => e.status === 'pending');
-  }
-
-  /**
-   * Update evaluation status
-   */
-  updateEvaluationStatus(clientId, evaluationId, status, result = null) {
-    const evaluations = this.evaluations.get(clientId);
-    if (!evaluations) return;
-    
-    const evaluation = evaluations.find(e => e.id === evaluationId);
-    if (evaluation) {
-      evaluation.status = status;
-      evaluation.lastRun = new Date().toISOString();
-      if (result) {
-        evaluation.lastResult = result;
-      }
-    }
   }
 
   /**
@@ -305,13 +146,10 @@ class ClientManager {
     // Write YAML file
     const yamlContent = yaml.dump(defaultConfig, { indent: 2 });
     fs.writeFileSync(yamlPath, yamlContent);
-    
+
     // Load the new client
     this.loadClient(clientId);
-    
-    // Load evaluations for the new client
-    this.loadAllEvaluations();
-    
+
     logger.info(`Created new client: ${clientId}`);
     return { clientId, yamlPath };
   }
