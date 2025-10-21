@@ -13,10 +13,18 @@ services:
     ports:
       # Chrome DevTools Protocol (matches kernel-images default)
       - "9222:9222"
-      # Recording API (matches kernel-images default)  
+      # Recording API (matches kernel-images default)
       - "444:10001"
       # WebRTC client interface
+      - "8000:8000"
+      # Enhanced DevTools UI
+      - "8001:8001"
+      # Eval Server HTTP API
       - "8080:8080"
+      # WebRTC Neko interface
+      - "8081:8081"
+      # Eval Server WebSocket
+      - "8082:8082"
       # WebRTC UDP port range for local development
       - "56000-56100:56000-56100/udp"
     environment:
@@ -30,8 +38,8 @@ services:
       - NEKO_WEBRTC_NAT1TO1=127.0.0.1
       # Run as kernel user (not root)
       - RUN_AS_ROOT=false
-      # Chromium flags with persistent data directory
-      - CHROMIUM_FLAGS=--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox
+      # Chromium flags with persistent data directory and custom DevTools frontend
+      - CHROMIUM_FLAGS=--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/
     volumes:
       # Persist recordings in local directory
       - "./recordings:/recordings"
@@ -43,6 +51,7 @@ services:
       - "./eval-server/nodejs:/opt/eval-server"
     tmpfs:
       - /dev/shm:size=2g
+      - /tmp
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]

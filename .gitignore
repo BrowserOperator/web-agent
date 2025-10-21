@@ -61,3 +61,10 @@ browser-operator-core/devtools-frontend/
 browser-operator-core/depot_tools/
 browser-operator-core/.devtools-built
 browser-operator-core/.devtools-base-built
+
+# Eval server runtime files
+eval-server/nodejs/clients/
+eval-server/nodejs/logs/
+
+# Evaluation screenshots
+evals/screenshots/

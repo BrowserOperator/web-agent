@@ -1,36 +1,308 @@
-# Kernel Browser - Google Cloud Run Deployment
+# Web Agent - Browser Automation & Evaluation Platform
 
-Deploy the [kernel-images](https://github.com/onkernel/kernel-images) Chrome browser environment to Google Cloud Run with WebRTC support, Chrome DevTools Protocol, and screen recording capabilities.
+Extended [kernel-images](https://github.com/onkernel/kernel-images) Chromium environment with Browser Operator DevTools and eval server for browser automation, testing, and AI agent evaluation.
 
 ## 🏗️ Architecture
 
-This deployment provides:
+This platform provides:
+- **Browser Operator DevTools** - Custom DevTools frontend with AI chat panel
+- **Eval Server API** - HTTP/WebSocket API for browser automation and evaluation
 - **Headful Chrome** with GUI access via WebRTC
 - **Chrome DevTools Protocol** for automation (Playwright, Puppeteer)
 - **Screen Recording API** for session capture
-- **nginx Reverse Proxy** for Cloud Run port requirements
-- **Auto-scaling** from 0 to multiple instances
+- **Local Docker Compose** for development
+- **Google Cloud Run** deployment option
 
 ## 📋 Prerequisites
 
+### For Local Development
+1. **Docker** and **Docker Compose** installed
+2. **Make** utility
+3. **Git** with submodule access
+4. **Python 3** (for running evals)
+
+### For Cloud Run Deployment
 1. **Google Cloud Account** with billing enabled
 2. **gcloud CLI** installed and authenticated
-3. **Docker** installed locally (for local builds)
-4. **Git** with submodule access
+3. All of the above
 
-## 🚀 Quick Start
+---
 
-### 1. Clone and Setup
+## 🚀 Local Development - Two Deployment Options
+
+### Option 1: Docker Compose (Recommended for Development)
+
+**Best for:** Background services, docker-compose workflows, persistent containers
 
 ```bash
-# The kernel-images submodule should already be initialized
-cd /Users/tyson/codebase/blue-browser/web-agent
+# 1. Initialize submodules
+make init
 
-# Verify submodule
-git submodule status
+# 2. Build Docker images (takes ~30 minutes first time)
+make build
+
+# 3. Start all services in background
+make compose-up
+
+# 4. Verify everything works
+make test
 ```
 
-### 2. Configure Google Cloud
+### Option 2: Direct Docker Run (Interactive Mode)
+
+**Best for:** Interactive debugging, seeing live logs, quick testing
+
+```bash
+# 1. Initialize submodules
+make init
+
+# 2. Build Docker images (takes ~30 minutes first time)
+make build
+
+# 3. Start in interactive mode (logs to terminal)
+make run
+
+# In another terminal, verify
+make test
+```
+
+### Access Points
+
+After starting with either `make compose-up` or `make run`, access:
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| **WebRTC Client** | http://localhost:8000 | Live browser view with control |
+| **DevTools UI** | http://localhost:8001 | Enhanced DevTools with AI chat |
+| **Eval Server API** | http://localhost:8080 | HTTP REST API for automation |
+| **WebRTC Neko** | http://localhost:8081 | WebRTC control interface |
+| **Eval Server WS** | ws://localhost:8082 | WebSocket JSON-RPC API |
+| **CDP Endpoint** | http://localhost:9222/json | Chrome DevTools Protocol |
+| **Recording API** | http://localhost:444/api | Screen recording controls |
+
+### Available Make Commands
+
+```bash
+make help              # Show all available commands
+make init              # Initialize git submodules
+make build             # Build images (smart caching)
+make rebuild           # Force complete rebuild
+make build-devtools    # Build DevTools base (~30 min)
+make rebuild-devtools  # Fast rebuild with local changes
+make compose-up        # Start in background
+make run               # Start in interactive mode
+make stop              # Stop all containers
+make restart           # Restart containers
+make logs              # View container logs
+make test              # Run API verification test
+make clean             # Clean up everything
+```
+
+### Comparison: `make run` vs `make compose-up`
+
+| Feature | `make run` | `make compose-up` |
+|---------|------------|-------------------|
+| **Log visibility** | Live logs in terminal | Background, use `make logs` |
+| **Stopping** | Ctrl+C or `docker stop` | `make stop` or `docker-compose down` |
+| **Restarting** | Stop and run again | `docker-compose restart` |
+| **Use case** | Interactive debugging | Background development |
+| **Startup script** | `run-local.sh` | `docker-compose.yml` |
+| **Lock cleanup** | Script cleans before start | Container cleans on start |
+| **Volume mounts** | Defined in script | Defined in compose file |
+
+### Development Workflow
+
+**With Docker Compose (make compose-up):**
+
+*Editing Eval Server Code:*
+```bash
+# 1. Make changes in eval-server/nodejs/
+vim eval-server/nodejs/src/api-server.js
+
+# 2. Restart container (no rebuild needed, volume-mounted)
+docker-compose restart
+
+# 3. Test changes
+make test
+```
+
+*Editing DevTools:*
+```bash
+# 1. Make changes in browser-operator-core/front_end/
+vim browser-operator-core/front_end/panels/ai_chat/...
+
+# 2. Rebuild DevTools only
+make rebuild-devtools
+
+# 3. Restart containers
+docker-compose down && docker-compose up -d
+```
+
+*Full Rebuild:*
+```bash
+make rebuild        # Rebuild everything from scratch
+make compose-up     # Start containers
+```
+
+**With Direct Docker Run (make run):**
+
+*Editing Eval Server Code:*
+```bash
+# 1. Make changes in eval-server/nodejs/
+vim eval-server/nodejs/src/api-server.js
+
+# 2. Since eval-server is NOT volume-mounted in run mode, rebuild
+make rebuild
+
+# 3. Stop and restart
+# Press Ctrl+C in the terminal running 'make run'
+make run
+```
+
+*Editing DevTools:*
+```bash
+# 1. Make changes in browser-operator-core/front_end/
+vim browser-operator-core/front_end/panels/ai_chat/...
+
+# 2. Rebuild DevTools only
+make rebuild-devtools
+
+# 3. Stop and restart
+# Press Ctrl+C in the terminal running 'make run'
+make run
+```
+
+*Full Rebuild:*
+```bash
+make rebuild        # Rebuild everything from scratch
+# Press Ctrl+C in the terminal running 'make run'
+make run           # Start in interactive mode
+```
+
+### Customizing Browser Data Location
+
+**With `make run`:**
+```bash
+# Default: ./chromium-data
+make run
+
+# Custom location
+CHROMIUM_DATA_HOST=/path/to/data make run
+
+# Ephemeral (no persistence)
+CHROMIUM_DATA_HOST="" make run
+```
+
+**With `make compose-up`:**
+```bash
+# Edit docker-compose.yml to change CHROMIUM_DATA_HOST
+# Or set environment variable:
+CHROMIUM_DATA_HOST=/path/to/data make compose-up
+```
+
+### Opening URLs on Startup
+
+**With `make run`:**
+```bash
+# Open specific URLs when browser starts
+URLS="https://google.com https://github.com" make run
+```
+
+**With `make compose-up`:**
+```bash
+# Add URLS to docker-compose.yml environment section
+```
+
+### Running Evaluations
+
+```bash
+# Simple test
+make test
+
+# Specific evaluation
+cd evals
+python3 run.py --path data/web-task-agent/flight-001.yaml --verbose
+
+# All evaluations in a directory
+python3 run.py --path data/web-task-agent/ --verbose
+```
+
+### Troubleshooting
+
+**Container won't start (docker-compose):**
+```bash
+# Check logs
+docker logs kernel-browser-extended
+
+# Clean restart
+make stop
+make clean
+make build
+make compose-up
+```
+
+**Container won't start (make run):**
+```bash
+# Stop existing container
+docker stop kernel-browser-extended
+docker rm kernel-browser-extended
+
+# Clean rebuild
+make clean
+make rebuild
+make run
+```
+
+**Port conflicts:**
+```bash
+# Remove existing container
+docker rm -f kernel-browser-extended
+
+# Then start with your preferred method
+make compose-up  # OR make run
+```
+
+**Lock file errors (should be automatic now):**
+The system now automatically cleans lock files on startup. If you still see errors:
+
+*With docker-compose:*
+```bash
+docker-compose down
+rm -f ./chromium-data/user-data/Singleton*
+make compose-up
+```
+
+*With make run:*
+```bash
+# Press Ctrl+C to stop
+rm -f ./chromium-data/user-data/Singleton*
+make run
+```
+
+**Seeing stale code after changes (make run):**
+```bash
+# Eval server code is NOT volume-mounted in run mode
+# You must rebuild after code changes
+make rebuild
+# Press Ctrl+C in terminal running 'make run'
+make run
+```
+
+**Want to see live logs (docker-compose):**
+```bash
+# Option 1: Follow logs
+make logs
+
+# Option 2: Switch to interactive mode
+make stop
+make run
+```
+
+---
+
+## 🚀 Google Cloud Run Deployment
+
+### Configure Google Cloud
 
 ```bash
 # Set your project ID
@@ -42,7 +314,7 @@ gcloud auth login
 gcloud auth application-default login
 ```
 
-### 3. Deploy
+### Deploy to Cloud Run
 
 ```bash
 # Automated deployment (recommended)
@@ -52,7 +324,7 @@ gcloud auth application-default login
 ./deploy.sh --project your-project-id --region us-central1
 ```
 
-### 4. Access Your Service
+### Access Cloud Run Service
 
 After deployment, you'll get URLs like:
 ```
@@ -157,24 +429,57 @@ For production WebRTC, configure a TURN server:
   value: '[{"urls": ["turn:turn.example.com:3478"], "username": "user", "credential": "pass"}]'
 ```
 
-## 📁 File Structure
+## 📁 Project Structure
 
 ```
 web-agent/
-├── kernel-images/          # Git submodule
-├── Dockerfile.cloudrun     # Cloud Run optimized build
-├── nginx.conf             # Reverse proxy config
-├── cloudrun-wrapper.sh    # Cloud Run startup script
-├── service.yaml           # Cloud Run service definition
-├── cloudbuild.yaml        # CI/CD pipeline
-├── deploy.sh              # Deployment script
-├── .gcloudignore          # Build ignore rules
-└── README.md              # This file
+├── browser-operator-core/      # Submodule: DevTools frontend source
+├── kernel-images/              # Submodule: Base browser environment
+├── eval-server/
+│   └── nodejs/                 # Eval server (use this, NOT submodule)
+│       ├── src/                # API server, evaluation server, lib
+│       ├── start.js            # Server entrypoint
+│       └── package.json
+├── evals/
+│   ├── run.py                  # Python evaluation runner
+│   ├── lib/judge.py            # Judge implementations
+│   └── data/                   # Evaluation YAML files
+├── scripts/
+│   └── init-container.sh       # Auto-cleanup of lock files
+├── supervisor/services/        # Service configs (overrides)
+├── Dockerfile.local            # Main Docker build
+├── Dockerfile.devtools         # DevTools frontend build
+├── docker-compose.yml          # Local deployment
+├── run-local.sh                # Interactive mode
+├── Makefile                    # Build commands
+├── Dockerfile.cloudrun         # Cloud Run build
+├── nginx.conf                  # Reverse proxy config
+├── service.yaml                # Cloud Run service config
+├── cloudbuild.yaml             # CI/CD pipeline
+├── deploy.sh                   # Cloud deployment script
+├── CLAUDE.md                   # Technical documentation
+└── README.md                   # This file
 ```
 
 ## 🐛 Troubleshooting
 
-### Common Issues
+### Local Development Issues
+
+See the detailed troubleshooting section under **Local Docker Compose Deployment** above.
+
+Common quick fixes:
+```bash
+# Clean restart
+make stop && make clean && make build && make compose-up
+
+# Check logs
+docker logs kernel-browser-extended
+
+# Verify services
+docker exec kernel-browser-extended supervisorctl status
+```
+
+### Cloud Run Issues
 
 1. **Build Timeout**
    ```bash
@@ -192,7 +497,7 @@ web-agent/
    - Check memory limits (8GB minimum)
    - Verify non-root user execution
 
-### Debug Commands
+### Cloud Run Debug Commands
 
 ```bash
 # View service logs
@@ -258,11 +563,67 @@ Use `_NO_CACHE=true` only when:
 
 ## 📚 Additional Resources
 
+- [CLAUDE.md](./CLAUDE.md) - Detailed technical documentation for Claude Code
 - [kernel-images Documentation](https://github.com/onkernel/kernel-images)
+- [Browser Operator DevTools](https://github.com/BrowserOperator/browser-operator-core)
 - [Cloud Run Documentation](https://cloud.google.com/run/docs)
 - [WebRTC Documentation](https://webrtc.org/getting-started/)
 - [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/)
 
+## 🎯 API Examples
+
+### Eval Server HTTP API
+
+```bash
+# Execute browser task
+curl -X POST http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "Navigate to google.com and search for puppies",
+    "url": "about:blank",
+    "wait_timeout": 5000,
+    "model": {
+      "main_model": {
+        "provider": "openai",
+        "model": "gpt-4",
+        "api_key": "your-api-key"
+      }
+    }
+  }'
+
+# Get page content
+curl -X POST http://localhost:8080/page/content \
+  -H "Content-Type: application/json" \
+  -d '{"clientId": "test", "tabId": "tab-001", "format": "html"}'
+
+# Capture screenshot
+curl -X POST http://localhost:8080/page/screenshot \
+  -H "Content-Type: application/json" \
+  -d '{"clientId": "test", "tabId": "tab-001", "fullPage": false}'
+```
+
+### WebSocket JSON-RPC API
+
+```javascript
+const WebSocket = require('ws');
+const ws = new WebSocket('ws://localhost:8082');
+
+ws.on('open', () => {
+  // Subscribe to evaluations
+  ws.send(JSON.stringify({
+    jsonrpc: '2.0',
+    method: 'subscribe',
+    params: { clientId: 'my-client' },
+    id: 1
+  }));
+});
+
+ws.on('message', (data) => {
+  const response = JSON.parse(data);
+  console.log('Received:', response);
+});
+```
+
 ---
 
-**Need help?** Open an issue or check the kernel-images Discord community.
+**Need help?** Check [CLAUDE.md](./CLAUDE.md) for detailed technical docs or open an issue.

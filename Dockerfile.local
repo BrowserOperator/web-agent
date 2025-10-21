@@ -258,7 +258,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     rm -rf /var/lib/apt/lists/*
 
 # Create eval server startup script
-RUN echo '#!/bin/bash\ncd /opt/eval-server && node examples/with-http-wrapper.js' > /usr/local/bin/start-eval-server.sh && \
+RUN echo '#!/bin/bash\ncd /opt/eval-server && node start.js' > /usr/local/bin/start-eval-server.sh && \
     chmod +x /usr/local/bin/start-eval-server.sh
 
 # ============================================================================
@@ -276,7 +276,24 @@ RUN mkdir -p /data/user-data /data/config /data/cache && \
 # Declare volume for optional mounting of Chromium profiles and data
 VOLUME ["/data"]
 
+# ============================================================================
+# Container Initialization Script
+# ============================================================================
+
+# Copy container initialization script that cleans up lock files
+COPY scripts/init-container.sh /usr/local/bin/init-container.sh
+RUN chmod +x /usr/local/bin/init-container.sh
+
+# Create a wrapper entrypoint that runs init script before main wrapper
+RUN echo '#!/bin/bash\n\
+set -e\n\
+# Run initialization script\n\
+/usr/local/bin/init-container.sh\n\
+# Execute main wrapper\n\
+exec /wrapper.sh "$@"' > /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
 # Expose ports
 EXPOSE 8000 8001 8080 8081 8082
 
-ENTRYPOINT [ "/wrapper.sh" ]
+ENTRYPOINT [ "/entrypoint.sh" ]
