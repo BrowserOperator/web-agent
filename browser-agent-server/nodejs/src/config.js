@@ -46,7 +46,7 @@ export const CONFIG = {
 
   rpc: {
     timeout: parseInt(process.env.RPC_TIMEOUT) || 7200000, // 2 hours default (increased for slow custom API)
-    maxConcurrentEvaluations: parseInt(process.env.MAX_CONCURRENT_EVALUATIONS) || 10
+    maxConcurrentRequests: parseInt(process.env.MAX_CONCURRENT_REQUESTS) || 10
   },
 
   security: {

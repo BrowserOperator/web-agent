@@ -2,15 +2,15 @@
   "name": "bo-eval-server",
   "version": "1.0.0",
   "description": "HTTP API wrapper for Browser Operator - WebSocket server with CDP integration",
-  "main": "src/lib/EvalServer.js",
+  "main": "src/lib/BrowserAgentServer.js",
   "type": "module",
   "exports": {
-    ".": "./src/lib/EvalServer.js",
-    "./EvalServer": "./src/lib/EvalServer.js",
+    ".": "./src/lib/BrowserAgentServer.js",
+    "./BrowserAgentServer": "./src/lib/BrowserAgentServer.js",
     "./HTTPWrapper": "./src/lib/HTTPWrapper.js"
   },
   "scripts": {
-    "start": "node src/lib/EvalServer.js"
+    "start": "node start.js"
   },
   "keywords": [
     "websocket",

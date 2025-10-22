@@ -12,14 +12,14 @@ FROM browser-operator-devtools:latest AS devtools-source
 # ============================================================================
 # Eval Server build stage
 # ============================================================================
-FROM --platform=linux/arm64 node:18-alpine AS eval-server-builder
+FROM --platform=linux/arm64 node:18-alpine AS browser-agent-server-builder
 
 WORKDIR /workspace
 
 # Copy eval server from browser-operator-core submodule
-COPY eval-server/nodejs /workspace/eval-server
+COPY browser-agent-server/nodejs /workspace/browser-agent-server
 
-WORKDIR /workspace/eval-server
+WORKDIR /workspace/browser-agent-server
 
 # Install dependencies
 RUN npm install
@@ -229,7 +229,7 @@ RUN ln -s /etc/nginx/sites-available/devtools /etc/nginx/sites-enabled/devtools 
 COPY supervisor/services/nginx-devtools.conf /etc/supervisor/conf.d/services/nginx-devtools.conf
 
 # Add eval server service to supervisor
-COPY supervisor/services/eval-server.conf /etc/supervisor/conf.d/services/eval-server.conf
+COPY supervisor/services/browser-agent-server.conf /etc/supervisor/conf.d/services/browser-agent-server.conf
 
 # Add neko service to supervisor (configured for port 8000)
 COPY supervisor/services/neko.conf /etc/supervisor/conf.d/services/neko.conf
@@ -250,7 +250,7 @@ RUN useradd -m -s /bin/bash kernel
 # ============================================================================
 
 # Copy eval server from builder
-COPY --from=eval-server-builder /workspace/eval-server /opt/eval-server
+COPY --from=browser-agent-server-builder /workspace/browser-agent-server /opt/browser-agent-server
 
 # Install Node.js in final image for eval server
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
@@ -258,8 +258,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     rm -rf /var/lib/apt/lists/*
 
 # Create eval server startup script
-RUN echo '#!/bin/bash\ncd /opt/eval-server && node start.js' > /usr/local/bin/start-eval-server.sh && \
-    chmod +x /usr/local/bin/start-eval-server.sh
+RUN echo '#!/bin/bash\ncd /opt/browser-agent-server && node start.js' > /usr/local/bin/start-browser-agent-server.sh && \
+    chmod +x /usr/local/bin/start-browser-agent-server.sh
 
 # ============================================================================
 # Chromium Data Directory Configuration

@@ -19,11 +19,11 @@ services:
       - "8000:8000"
       # Enhanced DevTools UI
       - "8001:8001"
-      # Eval Server HTTP API
+      # Browser Agent Server HTTP API
       - "8080:8080"
       # WebRTC Neko interface
       - "8081:8081"
-      # Eval Server WebSocket
+      # Browser Agent Server WebSocket
       - "8082:8082"
       # WebRTC UDP port range for local development
       - "57000-57100:57000-57100/udp"

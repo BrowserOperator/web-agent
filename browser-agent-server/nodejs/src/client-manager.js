@@ -124,16 +124,16 @@ class ClientManager {
   async createClientWithId(clientId, clientName, secretKey = null) {
     const yamlPath = path.join(this.clientsDir, `${clientId}.yaml`);
     
-    // Create simplified client configuration (evaluations come from evals directory)
+    // Create simplified client configuration
     const defaultConfig = {
       client: {
         id: clientId,
         name: clientName,
         secret_key: secretKey,
-        description: `Auto-generated DevTools evaluation client`
+        description: `Auto-generated DevTools client`
       },
       settings: {
-        max_concurrent_evaluations: 3,
+        max_concurrent_requests: 3,
         default_timeout: 45000,
         retry_policy: {
           max_retries: 2,

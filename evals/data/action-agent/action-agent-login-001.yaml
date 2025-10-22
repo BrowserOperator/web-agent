@@ -27,7 +27,7 @@ validation:
       - "Filled username field with correct value"
       - "Filled password field with correct value"
       - "Handled password field type appropriately"
-      - "Used the provided input_data XML format correctly"
+      - "Agent used the provided input_data XML format correctly from the request"
     visual_verification:
       enabled: true
       capture_before: true
@@ -35,7 +35,6 @@ validation:
       prompts:
         - "Verify the username field shows \"tomsmith\" entered"
         - "Confirm the password field has dots/asterisks indicating password entry"
-        - "Check that both fields are properly filled before submission"
         - "Ensure no validation errors are shown for the filled fields"
 
 metadata:

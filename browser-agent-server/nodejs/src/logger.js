@@ -32,40 +32,40 @@ const logger = winston.createLogger({
   ]
 });
 
-// Create dedicated evaluation logger once to avoid recreating on each call
-const evaluationLogger = winston.createLogger({
+// Create dedicated request logger once to avoid recreating on each call
+const requestLogger = winston.createLogger({
   format: winston.format.json(),
   transports: [
     new winston.transports.File({
-      filename: `${CONFIG.logging.dir}/evaluations.jsonl`
+      filename: `${CONFIG.logging.dir}/requests.jsonl`
     })
   ]
 });
 
-export function logEvaluation(evaluationData) {
+export function logRequest(requestData) {
   const logEntry = {
-    type: 'evaluation',
+    type: 'request',
     timestamp: new Date().toISOString(),
-    ...evaluationData
+    ...requestData
   };
-  
-  // Pretty print evaluation summary to console
+
+  // Pretty print request summary to console
   console.log('\n' + '='.repeat(80));
-  console.log(`📊 EVALUATION COMPLETED: ${evaluationData.name}`);
+  console.log(`📊 REQUEST COMPLETED: ${requestData.name}`);
   console.log('='.repeat(80));
-  console.log(`🆔 ID: ${evaluationData.evaluationId}`);
-  console.log(`🔧 Tool: ${evaluationData.tool}`);
-  console.log(`⏱️  Duration: ${evaluationData.duration}ms`);
-  console.log(`👤 Client: ${evaluationData.clientId}`);
-  
-  if (evaluationData.response?.output?.output) {
-    console.log(`\n📝 Output:\n${evaluationData.response.output.output}`);
+  console.log(`🆔 ID: ${requestData.requestId}`);
+  console.log(`🔧 Tool: ${requestData.tool}`);
+  console.log(`⏱️  Duration: ${requestData.duration}ms`);
+  console.log(`👤 Client: ${requestData.clientId}`);
+
+  if (requestData.response?.output?.output) {
+    console.log(`\n📝 Output:\n${requestData.response.output.output}`);
   }
-  
-  if (evaluationData.validation?.result) {
-    const val = evaluationData.validation.result;
+
+  if (requestData.validation?.result) {
+    const val = requestData.validation.result;
     console.log(`\n📋 Validation:`);
-    console.log(`   ✅ Passed: ${evaluationData.validation.passed ? 'YES' : 'NO'}`);
+    console.log(`   ✅ Passed: ${requestData.validation.passed ? 'YES' : 'NO'}`);
     console.log(`   📊 Overall Score: ${val.overall_score}/10`);
     if (val.strengths?.length > 0) {
       console.log(`   💪 Strengths: ${val.strengths.join(', ')}`);
@@ -74,14 +74,25 @@ export function logEvaluation(evaluationData) {
       console.log(`   ⚠️  Weaknesses: ${val.weaknesses.join(', ')}`);
     }
   }
-  
+
   console.log('='.repeat(80) + '\n');
-  
+
   // Also log structured data for file logs
-  logger.info('Evaluation completed', logEntry);
-  
-  // Also save to dedicated evaluation log
-  evaluationLogger.info(logEntry);
+  logger.info('Request completed', logEntry);
+
+  // Also save to dedicated request log
+  requestLogger.info(logEntry);
+}
+
+// Backward compatibility alias
+export function logEvaluation(evaluationData) {
+  // Map evaluationId to requestId if present
+  const requestData = { ...evaluationData };
+  if (evaluationData.evaluationId && !evaluationData.requestId) {
+    requestData.requestId = evaluationData.evaluationId;
+    delete requestData.evaluationId;
+  }
+  return logRequest(requestData);
 }
 
 export function logRpcCall(callData) {

@@ -5,33 +5,33 @@
 import { APIServer } from '../api-server.js';
 
 /**
- * HTTPWrapper - Optional HTTP API wrapper for EvalServer
- * 
- * This provides an HTTP REST API on top of the core EvalServer,
+ * HTTPWrapper - Optional HTTP API wrapper for BrowserAgentServer
+ *
+ * This provides an HTTP REST API on top of the core BrowserAgentServer,
  * following the same pattern as the CLI wrapper.
- * 
+ *
  * Example usage:
  * ```js
- * import { EvalServer } from './EvalServer.js';
+ * import { BrowserAgentServer } from './BrowserAgentServer.js';
  * import { HTTPWrapper } from './HTTPWrapper.js';
- * 
- * const evalServer = new EvalServer({ port: 8080 });
- * const httpWrapper = new HTTPWrapper(evalServer, { port: 8081 });
- * 
- * await evalServer.start();
+ *
+ * const browserAgentServer = new BrowserAgentServer({ port: 8080 });
+ * const httpWrapper = new HTTPWrapper(browserAgentServer, { port: 8081 });
+ *
+ * await browserAgentServer.start();
  * await httpWrapper.start();
  * ```
  */
 export class HTTPWrapper {
-  constructor(evalServer, options = {}) {
-    this.evalServer = evalServer;
+  constructor(browserAgentServer, options = {}) {
+    this.browserAgentServer = browserAgentServer;
     this.config = {
       port: options.port || 8081,
       host: options.host || 'localhost',
       ...options
     };
-    
-    this.apiServer = new APIServer(evalServer, this.config.port);
+
+    this.apiServer = new APIServer(browserAgentServer, this.config.port);
     this.isRunning = false;
   }
 
@@ -43,8 +43,8 @@ export class HTTPWrapper {
       throw new Error('HTTP wrapper is already running');
     }
 
-    if (!this.evalServer.isRunning) {
-      throw new Error('EvalServer must be started before starting HTTP wrapper');
+    if (!this.browserAgentServer.isRunning) {
+      throw new Error('BrowserAgentServer must be started before starting HTTP wrapper');
     }
 
     this.apiServer.start();

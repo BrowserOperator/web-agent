@@ -10,11 +10,11 @@ import yaml from 'js-yaml';
 import { v4 as uuidv4 } from 'uuid';
 
 import logger from './logger.js';
-// No need to import EvaluationServer - it's passed as constructor parameter
+// No need to import BrowserAgentServer - it's passed as constructor parameter
 
 class APIServer {
-  constructor(evaluationServer, port = 8081) {
-    this.evaluationServer = evaluationServer;
+  constructor(browserAgentServer, port = 8081) {
+    this.browserAgentServer = browserAgentServer;
     this.port = port;
     this.server = null;
     this.configDefaults = null;
@@ -162,26 +162,26 @@ class APIServer {
   }
 
   getStatus() {
-    const status = this.evaluationServer.getStatus();
-    const clients = this.evaluationServer.getClientManager().getAllClients();
+    const status = this.browserAgentServer.getStatus();
+    const clients = this.browserAgentServer.getClientManager().getAllClients();
 
     return {
       server: status,
       clients: clients.map(client => ({
         id: client.id,
         name: client.name,
-        connected: this.evaluationServer.connectedClients.has(client.id),
-        ready: this.evaluationServer.connectedClients.get(client.id)?.ready || false
+        connected: this.browserAgentServer.connectedClients.has(client.id),
+        ready: this.browserAgentServer.connectedClients.get(client.id)?.ready || false
       }))
     };
   }
 
   getClients() {
-    const clients = this.evaluationServer.getClientManager().getAllClients();
-    const connectedClients = this.evaluationServer.connectedClients;
+    const clients = this.browserAgentServer.getClientManager().getAllClients();
+    const connectedClients = this.browserAgentServer.connectedClients;
 
     return clients.map(client => {
-      const tabs = this.evaluationServer.getClientManager().getClientTabs(client.id);
+      const tabs = this.browserAgentServer.getClientManager().getClientTabs(client.id);
 
       return {
         id: client.id,
@@ -205,9 +205,9 @@ class APIServer {
       throw new Error('Client ID is required');
     }
 
-    const tabs = this.evaluationServer.getClientManager().getClientTabs(clientId);
-    const connectedClients = this.evaluationServer.connectedClients;
-    const client = this.evaluationServer.getClientManager().getClient(clientId);
+    const tabs = this.browserAgentServer.getClientManager().getClientTabs(clientId);
+    const connectedClients = this.browserAgentServer.connectedClients;
+    const client = this.browserAgentServer.getClientManager().getClient(clientId);
 
     if (!client) {
       throw new Error(`Client '${clientId}' not found`);
@@ -239,7 +239,7 @@ class APIServer {
     // Just extract the baseClientId (first part before colon if composite, or the whole ID)
     const baseClientId = clientId.split(':')[0];
 
-    const result = await this.evaluationServer.openTab(baseClientId, { url, background });
+    const result = await this.browserAgentServer.openTab(baseClientId, { url, background });
 
     return {
       clientId: baseClientId,
@@ -265,7 +265,7 @@ class APIServer {
     // Just extract the baseClientId
     const baseClientId = clientId.split(':')[0];
 
-    const result = await this.evaluationServer.closeTab(baseClientId, { tabId });
+    const result = await this.browserAgentServer.closeTab(baseClientId, { tabId });
 
     return {
       clientId: baseClientId,
@@ -296,8 +296,8 @@ class APIServer {
 
     // Call appropriate method based on format
     const result = format === 'html'
-      ? await this.evaluationServer.getPageHTML(tabId)
-      : await this.evaluationServer.getPageText(tabId);
+      ? await this.browserAgentServer.getPageHTML(tabId)
+      : await this.browserAgentServer.getPageText(tabId);
 
     return {
       clientId: baseClientId,
@@ -324,7 +324,7 @@ class APIServer {
 
     logger.info('Capturing screenshot', { baseClientId, tabId, fullPage });
 
-    const result = await this.evaluationServer.captureScreenshot(tabId, { fullPage });
+    const result = await this.browserAgentServer.captureScreenshot(tabId, { fullPage });
 
     return {
       clientId: baseClientId,
@@ -373,7 +373,7 @@ class APIServer {
 
       // Open a new tab for this request at the specified URL
       logger.info('Opening new tab for responses request', { baseClientId, url: targetUrl });
-      const tabResult = await this.evaluationServer.openTab(baseClientId, {
+      const tabResult = await this.browserAgentServer.openTab(baseClientId, {
         url: targetUrl,
         background: false
       });
@@ -392,19 +392,19 @@ class APIServer {
         await new Promise(resolve => setTimeout(resolve, waitTimeout));
       }
 
-      // Create a dynamic evaluation for this request
-      const evaluation = this.createDynamicEvaluationNested(requestBody.input, nestedModelConfig);
+      // Create a dynamic request for this request
+      const request = this.createDynamicRequestNested(requestBody.input, nestedModelConfig);
 
-      // Execute the evaluation on the new tab's DevTools client
-      logger.info('Executing evaluation on new tab', {
+      // Execute the request on the new tab's DevTools client
+      logger.info('Executing request on new tab', {
         compositeClientId: tabResult.compositeClientId,
-        evaluationId: evaluation.id
+        requestId: request.id
       });
 
-      const result = await this.evaluationServer.executeEvaluation(tabClient, evaluation);
+      const result = await this.browserAgentServer.executeRequest(tabClient, request);
 
       // Debug: log the result structure
-      logger.debug('executeEvaluation result:', result);
+      logger.debug('executeRequest result:', result);
 
       // Extract the response text from the result
       const responseText = this.extractResponseText(result);
@@ -468,7 +468,7 @@ class APIServer {
    * Find a connected and ready client
    */
   findReadyClient() {
-    for (const [clientId, connection] of this.evaluationServer.connectedClients) {
+    for (const [clientId, connection] of this.browserAgentServer.connectedClients) {
       if (connection.ready) {
         return connection;
       }
@@ -481,11 +481,11 @@ class APIServer {
    * @returns {string} Base client ID
    */
   findClientWithTabs() {
-    const clients = this.evaluationServer.getClientManager().getAllClients();
+    const clients = this.browserAgentServer.getClientManager().getAllClients();
 
     // First, try to find a client with existing tabs
     for (const client of clients) {
-      const tabs = this.evaluationServer.getClientManager().getClientTabs(client.id);
+      const tabs = this.browserAgentServer.getClientManager().getClientTabs(client.id);
       if (tabs.length > 0) {
         logger.info('Found client with tabs', { clientId: client.id, tabCount: tabs.length });
         return client.id;
@@ -514,7 +514,7 @@ class APIServer {
     logger.info('Waiting for client connection', { compositeClientId, maxWaitMs });
 
     while (Date.now() - startTime < maxWaitMs) {
-      const connection = this.evaluationServer.connectedClients.get(compositeClientId);
+      const connection = this.browserAgentServer.connectedClients.get(compositeClientId);
 
       if (connection && connection.ready) {
         logger.info('Client connection established and ready', {
@@ -537,13 +537,13 @@ class APIServer {
    * @param {import('./types/model-config').ModelConfig} nestedModelConfig - Model configuration
    * @returns {import('./types/model-config').EvaluationRequest} Evaluation request object
    */
-  createDynamicEvaluationNested(input, nestedModelConfig) {
-    const evaluationId = `api-eval-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  createDynamicRequestNested(input, nestedModelConfig) {
+    const requestId = `api-req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
     return {
-      id: evaluationId,
+      id: requestId,
       name: 'API Request',
-      description: 'Dynamic evaluation created from API request',
+      description: 'Dynamic request created from API request',
       enabled: true,
       tool: 'chat',
       timeout: 7200000, // 2 hours (increased for slow custom API)

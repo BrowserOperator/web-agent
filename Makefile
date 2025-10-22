@@ -120,15 +120,15 @@ shell: ## Get shell access to running container
 info: ## Show connection information
 	@echo ""
 	@echo "🌐 Service Access Points:"
-	@echo "   WebRTC Client:        http://localhost:8000"
-	@echo "   Eval Server API:      http://localhost:8081"
-	@echo "   Chrome DevTools:      http://localhost:9222/json"
-	@echo "   Recording API:        http://localhost:444/api"
-	@echo "   Enhanced DevTools UI: http://localhost:8001"
-	@echo "   DevTools Health:      http://localhost:8001/health"
+	@echo "   WebRTC Client:              http://localhost:8000"
+	@echo "   Browser Agent Server API:   http://localhost:8081"
+	@echo "   Chrome DevTools:            http://localhost:9222/json"
+	@echo "   Recording API:              http://localhost:444/api"
+	@echo "   Enhanced DevTools UI:       http://localhost:8001"
+	@echo "   DevTools Health:            http://localhost:8001/health"
 
-test: ## Test eval API with simple math eval
-	@echo "🧪 Testing Eval Server API..."
+test: ## Test Browser Agent Server API with simple eval
+	@echo "🧪 Testing Browser Agent Server API..."
 	@echo ""
 	@echo "1️⃣  Checking API endpoint..."
 	@curl -s -o /dev/null -w "   Status: %{http_code}\n" http://localhost:8080/status || (echo "   ❌ API not responding"; exit 1)

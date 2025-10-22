@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Custom eval-server startup script for Cloud Run
+// Custom browser-agent-server startup script for Cloud Run
 // Uses environment variables for port configuration
 
 import { EvalServer } from './src/lib/EvalServer.js';

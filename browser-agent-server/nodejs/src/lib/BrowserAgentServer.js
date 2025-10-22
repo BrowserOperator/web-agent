@@ -8,39 +8,39 @@ import { WebSocketServer } from 'ws';
 
 import { ClientManager } from '../client-manager.js';
 import { CONFIG, validateConfig } from '../config.js';
-import logger, { logConnection, logEvaluation } from '../logger.js';
+import logger, { logConnection, logRequest } from '../logger.js';
 import { RpcClient } from '../rpc-client.js';
 
 /**
- * EvalServer - A library for programmatically managing evaluation servers
- * 
+ * BrowserAgentServer - OpenAI-compatible HTTP API wrapper for Browser Operator
+ *
  * Example usage:
  * ```js
- * const server = new EvalServer({
+ * const server = new BrowserAgentServer({
  *   authKey: 'your-secret-key',
  *   host: '127.0.0.1',
  *   port: 8080
  * });
- * 
+ *
  * server.onConnect(client => {
  *   console.log(`Client connected: ${client.id}`);
- *   
- *   client.evaluate({
- *     id: "test_eval",
- *     name: "Bloomberg Eval",
- *     description: "Test Eval for Bloomberg website",
+ *
+ *   client.execute({
+ *     id: "test_request",
+ *     name: "Bloomberg Task",
+ *     description: "Navigate to Bloomberg and summarize latest news",
  *     input: {
  *       objective: "Navigate to Bloomberg, summarize and return sentiment of the latest news."
  *     }
  *   }).then(response => {
- *     console.log('Evaluation response:', response);
+ *     console.log('Request response:', response);
  *   });
  * });
- * 
+ *
  * server.start();
  * ```
  */
-export class EvalServer extends EventEmitter {
+export class BrowserAgentServer extends EventEmitter {
   constructor(options = {}) {
     super();
     
@@ -65,7 +65,7 @@ export class EvalServer extends EventEmitter {
   }
 
   /**
-   * Start the evaluation server
+   * Start the browser agent server
    */
   async start() {
     if (this.isRunning) {
@@ -91,14 +91,14 @@ export class EvalServer extends EventEmitter {
     });
 
     this.isRunning = true;
-    logger.info(`Evaluation server started on ws://${this.config.host}:${this.config.port}`);
+    logger.info(`Browser agent server started on ws://${this.config.host}:${this.config.port}`);
     this.emit('started', { host: this.config.host, port: this.config.port });
 
     return this;
   }
 
   /**
-   * Stop the evaluation server
+   * Stop the browser agent server
    */
   async stop() {
     if (!this.isRunning) {
@@ -120,7 +120,7 @@ export class EvalServer extends EventEmitter {
     this.connectedClients.clear();
 
     this.isRunning = false;
-    logger.info('Evaluation server stopped');
+    logger.info('Browser agent server stopped');
     this.emit('stopped');
   }
 
@@ -143,8 +143,8 @@ export class EvalServer extends EventEmitter {
   }
 
   /**
-   * Set the judge for evaluations (optional)
-   * @param {Judge} judge - Judge instance for evaluation validation
+   * Set the judge for request validation (optional)
+   * @param {Judge} judge - Judge instance for request validation
    */
   setJudge(judge) {
     // If server is already running, validate LLM config when setting judge
@@ -154,7 +154,7 @@ export class EvalServer extends EventEmitter {
         throw new Error(`Cannot set judge: ${configErrors.join(', ')}`);
       }
     }
-    
+
     this.judge = judge;
     return this;
   }
@@ -280,7 +280,7 @@ export class EvalServer extends EventEmitter {
             return;
           }
           connection.ready = true;
-          logger.info('Client ready for evaluations', {
+          logger.info('Client ready for requests', {
             clientId: connection.clientId
           });
           
@@ -575,7 +575,7 @@ export class EvalServer extends EventEmitter {
         clientId,
         status: 'accepted',
         message: result.clientName ? `Welcome ${result.clientName}` : 'Client authenticated successfully',
-        evaluationsCount: result.evaluationsCount,
+        requestsCount: result.requestsCount,
         tabId: tabId,
         isComposite: isComposite
       });
@@ -604,11 +604,11 @@ export class EvalServer extends EventEmitter {
   handleStatusUpdate(connection, data) {
     if (!connection.registered) return;
 
-    const { evaluationId, status, progress, message } = data;
+    const { requestId, status, progress, message } = data;
 
-    logger.info('Evaluation status update', {
+    logger.info('Request status update', {
       clientId: connection.clientId,
-      evaluationId,
+      requestId,
       status,
       progress,
       message
@@ -673,21 +673,21 @@ export class EvalServer extends EventEmitter {
   }
 
   /**
-   * Execute evaluation on a specific client
+   * Execute request on a specific client
    */
-  async executeEvaluation(connection, evaluation) {
+  async executeRequest(connection, request) {
     const startTime = Date.now();
     const rpcId = `rpc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
     try {
-      logger.info('Starting evaluation', {
+      logger.info('Starting request', {
         clientId: connection.clientId,
-        evaluationId: evaluation.id,
-        tool: evaluation.tool
+        requestId: request.id,
+        tool: request.tool
       });
 
-      // Prepare model configuration - use client config if available, otherwise evaluation config, otherwise defaults
-      let modelConfig = evaluation.model || {};
+      // Prepare model configuration - use client config if available, otherwise request config, otherwise defaults
+      let modelConfig = request.model || {};
 
       if (connection.llmConfig) {
         // New nested format: separate config objects for each model tier
@@ -710,7 +710,7 @@ export class EvalServer extends EventEmitter {
             api_key: connection.llmConfig.apiKey,
             endpoint: connection.llmConfig.endpoint
           },
-          // Include any evaluation-specific overrides
+          // Include any request-specific overrides
           ...modelConfig
         };
       }
@@ -720,16 +720,16 @@ export class EvalServer extends EventEmitter {
         jsonrpc: '2.0',
         method: 'evaluate',
         params: {
-          evaluationId: evaluation.id,
-          name: evaluation.name,
-          url: evaluation.target?.url || evaluation.url,
-          tool: evaluation.tool,
-          input: evaluation.input,
+          requestId: request.id,
+          name: request.name,
+          url: request.target?.url || request.url,
+          tool: request.tool,
+          input: request.input,
           model: modelConfig,
-          timeout: evaluation.timeout || 30000,
+          timeout: request.timeout || 30000,
           metadata: {
-            tags: evaluation.metadata?.tags || [],
-            retries: evaluation.settings?.retry_policy?.max_retries || 0
+            tags: request.metadata?.tags || [],
+            retries: request.settings?.retry_policy?.max_retries || 0
           }
         },
         id: rpcId
@@ -740,15 +740,15 @@ export class EvalServer extends EventEmitter {
         connection.ws,
         'evaluate',
         rpcRequest.params,
-        evaluation.timeout || 45000
+        request.timeout || 45000
       );
 
-      // Log evaluation
-      logEvaluation({
-        evaluationId: evaluation.id,
+      // Log request
+      logRequest({
+        requestId: request.id,
         clientId: connection.clientId,
-        name: evaluation.name,
-        tool: evaluation.tool,
+        name: request.name,
+        tool: request.tool,
         response,
         timestamp: new Date().toISOString(),
         duration: Date.now() - startTime
@@ -757,9 +757,9 @@ export class EvalServer extends EventEmitter {
       return response;
 
     } catch (error) {
-      logger.error('Evaluation failed', {
+      logger.error('Request failed', {
         clientId: connection.clientId,
-        evaluationId: evaluation.id,
+        requestId: request.id,
         error: error.message
       });
 
@@ -1180,25 +1180,33 @@ class ClientProxy {
   }
 
   /**
-   * Execute an evaluation on this client
+   * Execute a request on this client
    */
-  async evaluate(evaluation) {
-    // Ensure evaluation has required fields
-    const fullEvaluation = {
-      id: evaluation.id || `eval-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-      name: evaluation.name || 'Dynamic Evaluation',
-      description: evaluation.description || 'Programmatically created evaluation',
+  async execute(request) {
+    // Ensure request has required fields
+    const fullRequest = {
+      id: request.id || `req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      name: request.name || 'Dynamic Request',
+      description: request.description || 'Programmatically created request',
       enabled: true,
-      tool: evaluation.tool || 'chat',
-      timeout: evaluation.timeout || 45000,
-      input: evaluation.input || {},
-      model: evaluation.model || {},
-      validation: evaluation.validation || { type: 'none' },
-      metadata: evaluation.metadata || { tags: ['api', 'dynamic'] },
-      ...evaluation
+      tool: request.tool || 'chat',
+      timeout: request.timeout || 45000,
+      input: request.input || {},
+      model: request.model || {},
+      validation: request.validation || { type: 'none' },
+      metadata: request.metadata || { tags: ['api', 'dynamic'] },
+      ...request
     };
 
-    return this.server.executeEvaluation(this.connection, fullEvaluation);
+    return this.server.executeRequest(this.connection, fullRequest);
+  }
+
+  /**
+   * Alias for backward compatibility
+   * @deprecated Use execute() instead
+   */
+  async evaluate(request) {
+    return this.execute(request);
   }
 
   /**
