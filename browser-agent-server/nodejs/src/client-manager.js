@@ -131,15 +131,6 @@ class ClientManager {
         name: clientName,
         secret_key: secretKey,
         description: `Auto-generated DevTools client`
-      },
-      settings: {
-        max_concurrent_requests: 3,
-        default_timeout: 45000,
-        retry_policy: {
-          max_retries: 2,
-          backoff_multiplier: 2,
-          initial_delay: 1000
-        }
       }
     };
     
