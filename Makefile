@@ -1,7 +1,7 @@
 # Makefile for kernel-browser local development
 # Using kernel-images native build system
 
-.PHONY: help build run stop logs clean dev status shell test
+.PHONY: help build rebuild run stop logs clean dev status shell test
 
 # Default target
 help: ## Show this help message
@@ -12,23 +12,73 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Chromium Data Persistence:"
-	@echo "  - Browser data persists to ./chromium-data by default"
+	@echo "  - Browser data persists to @mount/chromium-data by default"
 	@echo "  - Customize location: CHROMIUM_DATA_HOST=/path/to/data make run"
 	@echo "  - Disable persistence: CHROMIUM_DATA_HOST=\"\" make run"
 
 init: ## Initialize submodules (run this first)
-	git submodule update --init --recursive
+	@echo "📦 Initializing submodules..."
+	git submodule update --init --depth 1 kernel-images
+	git submodule update --init --depth 1 browser-operator-core
 	@echo "✅ Submodules initialized"
 
-build: init ## Build extended image with DevTools frontend
+init-devtools: ## Initialize browser-operator-core submodule only
+	@echo "📦 Initializing browser-operator-core submodule..."
+	git submodule update --init --depth 1 browser-operator-core
+	@echo "✅ browser-operator-core submodule initialized"
+
+build-devtools-base: init-devtools ## Build DevTools base image (slow, rarely needed)
+	@echo "🔨 Building DevTools base layer (this takes ~30 minutes)..."
+	docker build -f Dockerfile.devtools --target devtools-base -t browser-operator-devtools:base .
+	@echo "✅ DevTools base built and cached"
+
+build-devtools: init-devtools ## Build DevTools image (smart: uses cache)
+	@if docker images | grep -q "browser-operator-devtools.*base"; then \
+		echo "✅ Using cached DevTools base"; \
+	else \
+		echo "📦 DevTools base not found, building from scratch..."; \
+		$(MAKE) --no-print-directory build-devtools-base; \
+	fi
+	@echo "🔨 Building Browser Operator DevTools..."
+	docker build -f Dockerfile.devtools --target devtools-server -t browser-operator-devtools:latest .
+	@echo "✅ DevTools built: browser-operator-devtools:latest"
+
+rebuild-devtools: ## Fast rebuild DevTools with local changes (recommended)
+	@echo "🔄 Rebuilding DevTools with local changes (using cached base)..."
+	@if ! docker images | grep -q "browser-operator-devtools.*base"; then \
+		echo "❌ DevTools base not found. Building base first..."; \
+		$(MAKE) --no-print-directory build-devtools-base; \
+	fi
+	docker build -f Dockerfile.devtools --target devtools-server -t browser-operator-devtools:latest .
+	@echo "✅ DevTools rebuilt with your local changes"
+
+rebuild-devtools-full: ## Force complete rebuild from scratch (slow, rarely needed)
+	@echo "🔄 Force rebuilding DevTools from scratch (this will take ~30 minutes)..."
+	docker build -f Dockerfile.devtools --no-cache --target devtools-server -t browser-operator-devtools:latest .
+	@echo "✅ DevTools completely rebuilt"
+
+build: init ## Build extended image with DevTools frontend (smart: only builds DevTools if needed)
 	@echo "🔨 Building extended kernel-browser with DevTools frontend..."
+	@if ! docker images | grep -q "browser-operator-devtools.*latest"; then \
+		echo "📦 DevTools image not found, building it first..."; \
+		echo "   This is a one-time operation and will take ~30 minutes..."; \
+		$(MAKE) --no-print-directory build-devtools; \
+	else \
+		echo "✅ Using existing DevTools image"; \
+	fi
 	docker build -f Dockerfile.local -t kernel-browser:extended .
 	@echo "✅ Extended build complete"
+
+rebuild: init ## Force complete rebuild (including DevTools)
+	@echo "🔄 Force rebuilding everything from scratch..."
+	$(MAKE) --no-print-directory build-devtools
+	docker build -f Dockerfile.local -t kernel-browser:extended .
+	@echo "✅ Complete rebuild finished"
 
 run: ## Run extended container with DevTools (interactive)
 	@echo "🚀 Starting extended kernel-browser with DevTools..."
 	@if [ -n "$(URLS)" ]; then echo "📄 Opening URLs: $(URLS)"; fi
-	@./run-local.sh
+	@./deployment/local/run-local.sh
 
 compose-up: build ## Start with docker-compose (background)
 	@echo "🚀 Starting with docker-compose..."
@@ -70,38 +120,23 @@ shell: ## Get shell access to running container
 info: ## Show connection information
 	@echo ""
 	@echo "🌐 Service Access Points:"
-	@echo "   WebRTC Client:        http://localhost:8000"
-	@echo "   Eval Server API:      http://localhost:8081"
-	@echo "   Chrome DevTools:      http://localhost:9222/json"
-	@echo "   Recording API:        http://localhost:444/api"
-	@echo "   Enhanced DevTools UI: http://localhost:8001"
-	@echo "   DevTools Health:      http://localhost:8001/health"
+	@echo "   WebRTC Client:              http://localhost:8000"
+	@echo "   Browser Agent Server API:   http://localhost:8081"
+	@echo "   Chrome DevTools:            http://localhost:9222/json"
+	@echo "   Recording API:              http://localhost:444/api"
+	@echo "   Enhanced DevTools UI:       http://localhost:8001"
+	@echo "   DevTools Health:            http://localhost:8001/health"
 
-test: ## Test service endpoints
-	@echo "🧪 Testing service endpoints..."
-	@echo -n "WebRTC Client (8000): "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ || echo "Failed to connect"
+test: ## Test Browser Agent Server API with simple eval
+	@echo "🧪 Testing Browser Agent Server API..."
 	@echo ""
-	@echo -n "Eval Server API (8081): "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/ || echo "Failed to connect"
+	@echo "1️⃣  Checking API endpoint..."
+	@curl -s -o /dev/null -w "   Status: %{http_code}\n" http://localhost:8080/status || (echo "   ❌ API not responding"; exit 1)
 	@echo ""
-	@echo -n "Chrome DevTools (9222): "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:9222/json/version || echo "Failed to connect" 
+	@echo "2️⃣  Running simple eval test (test-simple/math-001.yaml)..."
+	@cd evals && python3 run.py --path data/test-simple/math-001.yaml || (echo "   ❌ Eval test failed"; exit 1)
 	@echo ""
-	@echo -n "Recording API (444): "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:444/ && echo " (404 is normal - API is running)" || echo "Failed to connect"
-	@echo ""
-	@echo -n "DevTools UI (8001): "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/ || echo "Failed to connect"
-	@echo ""
-	@echo -n "DevTools Health (8001): "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/health || echo "Failed to connect"
-	@echo ""
-	@echo "🎯 All services are ready! Access points:"
-	@echo "   WebRTC Client:        http://localhost:8000"
-	@echo "   Eval Server API:      http://localhost:8081"
-	@echo "   Chrome DevTools:      http://localhost:9222/json"
-	@echo "   Enhanced DevTools UI: http://localhost:8001"
+	@echo "✅ API is working correctly!"
 
 clean: stop ## Clean up everything
 	@echo "🧹 Cleaning up..."
@@ -111,6 +146,12 @@ clean: stop ## Clean up everything
 	rm -rf recordings/* 2>/dev/null || true
 	rm -rf kernel-images/images/chromium-headful/.tmp 2>/dev/null || true
 	@echo "✅ Cleanup complete"
+
+clean-devtools: ## Clean DevTools images and cache
+	@echo "🧹 Cleaning DevTools images..."
+	docker rmi browser-operator-devtools:latest 2>/dev/null || true
+	docker rmi browser-operator-devtools:base 2>/dev/null || true
+	@echo "✅ DevTools images removed"
 
 # Alternative commands for different approaches
 native-build: init ## Build using kernel-images native script directly

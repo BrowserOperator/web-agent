@@ -1,0 +1,32 @@
+# Simple math test
+id: "math-001"
+name: "Simple Math 5x7"
+description: "Very simple test - calculate 5 times 7"
+enabled: true
+
+target:
+  url: "about:blank"
+  wait_for: "networkidle"
+  wait_timeout: 1000
+
+tool: "chat"
+timeout: 10000
+
+input:
+  message: "How much is 5x7? Just respond with the number."
+
+validation:
+  type: "llm-judge"
+  llm_judge:
+    model: "gpt-4.1-mini"
+    criteria:
+      - "Response contains the number 35"
+      - "Response is mathematically correct"
+
+metadata:
+  tags: ["test", "simple", "math"]
+  priority: "high"
+  timeout: 10000
+  retries: 0
+  flaky: false
+  owner: "test"

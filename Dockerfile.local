@@ -1,79 +1,25 @@
 # Extended Dockerfile combining kernel-images with DevTools frontend
 # This extends the kernel-images base with Browser Operator DevTools static files
+#
+# NOTE: DevTools are built separately using Dockerfile.devtools
+# Run 'make build-devtools' first to build the DevTools image
 
-# DevTools Frontend build stage using browser-operator-core
-FROM --platform=linux/amd64 ubuntu:22.04 AS devtools-builder
-
-# Install required packages
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    python3 \
-    python3-pip \
-    python-is-python3 \
-    wget \
-    unzip \
-    sudo \
-    ca-certificates \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Node.js 18.x
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/*
-
-WORKDIR /workspace
-
-# Clone depot_tools
-RUN git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
-ENV PATH="/workspace/depot_tools:${PATH}"
-ENV DEPOT_TOOLS_UPDATE=0
-
-# Follow README instructions exactly:
-# fetching code
-RUN mkdir devtools
-WORKDIR /workspace/devtools
-RUN fetch devtools-frontend
-
-# Build steps
-WORKDIR /workspace/devtools/devtools-frontend
-
-RUN gclient sync
-RUN /workspace/depot_tools/ensure_bootstrap
-
-# Build standard DevTools first
-RUN npm run build
-
-# Add Browser Operator fork and switch to it
-RUN git remote add upstream https://github.com/BrowserOperator/browser-operator-core.git
-RUN git fetch upstream
-RUN git checkout upstream/main
-
-# Copy local changes from the repository (preserve build config)
-# Uncomment the following lines if you want to copy local changes
-# COPY browser-operator-core/front_end/core /workspace/devtools/devtools-frontend/front_end/core/
-# COPY browser-operator-core/front_end/panels/ai_chat /workspace/devtools/devtools-frontend/front_end/panels/ai_chat/
-# COPY browser-operator-core/front_end/entrypoints /workspace/devtools/devtools-frontend/front_end/entrypoints/
-# COPY browser-operator-core/scripts /workspace/devtools/devtools-frontend/scripts/
-
-# Force automated mode
-RUN sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' front_end/panels/ai_chat/core/BuildConfig.ts;
-
-# Build Browser Operator version with current changes
-RUN npm run build
+# ============================================================================
+# DevTools stage - Copy from pre-built devtools image
+# ============================================================================
+FROM browser-operator-devtools:latest AS devtools-source
 
 # ============================================================================
 # Eval Server build stage
 # ============================================================================
-FROM --platform=linux/arm64 node:18-alpine AS eval-server-builder
+FROM --platform=linux/arm64 node:18-alpine AS browser-agent-server-builder
 
 WORKDIR /workspace
 
-# Copy local browser-operator-core eval server with our modifications
-COPY browser-operator-core/eval-server/nodejs /workspace/eval-server
+# Copy eval server from browser-operator-core submodule
+COPY browser-agent-server/nodejs /workspace/browser-agent-server
 
-WORKDIR /workspace/eval-server
+WORKDIR /workspace/browser-agent-server
 
 # Install dependencies
 RUN npm install
@@ -271,11 +217,11 @@ COPY --from=server-builder /out/kernel-images-api /usr/local/bin/kernel-images-a
 # DevTools Integration
 # ============================================================================
 
-# Copy DevTools static files from builder
-COPY --from=devtools-builder /workspace/devtools/devtools-frontend/out/Default/gen/front_end /usr/share/nginx/devtools
+# Copy DevTools static files from pre-built devtools image
+COPY --from=devtools-source /usr/share/nginx/html /usr/share/nginx/devtools
 
 # Create DevTools nginx configuration
-COPY nginx-devtools.conf /etc/nginx/sites-available/devtools
+COPY nginx/nginx-devtools.conf /etc/nginx/sites-available/devtools
 RUN ln -s /etc/nginx/sites-available/devtools /etc/nginx/sites-enabled/devtools && \
     rm /etc/nginx/sites-enabled/default
 
@@ -283,7 +229,7 @@ RUN ln -s /etc/nginx/sites-available/devtools /etc/nginx/sites-enabled/devtools 
 COPY supervisor/services/nginx-devtools.conf /etc/supervisor/conf.d/services/nginx-devtools.conf
 
 # Add eval server service to supervisor
-COPY supervisor/services/eval-server.conf /etc/supervisor/conf.d/services/eval-server.conf
+COPY supervisor/services/browser-agent-server.conf /etc/supervisor/conf.d/services/browser-agent-server.conf
 
 # Add neko service to supervisor (configured for port 8000)
 COPY supervisor/services/neko.conf /etc/supervisor/conf.d/services/neko.conf
@@ -304,7 +250,7 @@ RUN useradd -m -s /bin/bash kernel
 # ============================================================================
 
 # Copy eval server from builder
-COPY --from=eval-server-builder /workspace/eval-server /opt/eval-server
+COPY --from=browser-agent-server-builder /workspace/browser-agent-server /opt/browser-agent-server
 
 # Install Node.js in final image for eval server
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
@@ -312,8 +258,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     rm -rf /var/lib/apt/lists/*
 
 # Create eval server startup script
-RUN echo '#!/bin/bash\ncd /opt/eval-server && node examples/with-http-wrapper.js' > /usr/local/bin/start-eval-server.sh && \
-    chmod +x /usr/local/bin/start-eval-server.sh
+RUN echo '#!/bin/bash\ncd /opt/browser-agent-server && node start.js' > /usr/local/bin/start-browser-agent-server.sh && \
+    chmod +x /usr/local/bin/start-browser-agent-server.sh
 
 # ============================================================================
 # Chromium Data Directory Configuration
@@ -330,7 +276,24 @@ RUN mkdir -p /data/user-data /data/config /data/cache && \
 # Declare volume for optional mounting of Chromium profiles and data
 VOLUME ["/data"]
 
+# ============================================================================
+# Container Initialization Script
+# ============================================================================
+
+# Copy container initialization script that cleans up lock files
+COPY scripts/init-container.sh /usr/local/bin/init-container.sh
+RUN chmod +x /usr/local/bin/init-container.sh
+
+# Create a wrapper entrypoint that runs init script before main wrapper
+RUN echo '#!/bin/bash\n\
+set -e\n\
+# Run initialization script\n\
+/usr/local/bin/init-container.sh\n\
+# Execute main wrapper\n\
+exec /wrapper.sh "$@"' > /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
 # Expose ports
 EXPOSE 8000 8001 8080 8081 8082
 
-ENTRYPOINT [ "/wrapper.sh" ]
+ENTRYPOINT [ "/entrypoint.sh" ]

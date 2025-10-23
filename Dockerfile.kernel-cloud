@@ -208,7 +208,7 @@ RUN mkdir -p /chromium && \
     chown -R kernel:kernel /chromium
 
 # Cloud Run wrapper that starts kernel-images services + nginx proxy
-COPY cloudrun-kernel-wrapper.sh /cloudrun-kernel-wrapper.sh
+COPY deployment/cloudrun/cloudrun-kernel-wrapper.sh /cloudrun-kernel-wrapper.sh
 RUN chmod +x /cloudrun-kernel-wrapper.sh
 
 # Cloud Run requires non-root execution

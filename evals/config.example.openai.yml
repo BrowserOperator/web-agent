@@ -1,0 +1,60 @@
+# Evaluation Framework Configuration
+# This configuration is shared across all evaluation runner scripts
+# Example configuration for OpenAI models
+
+# API endpoint for the evaluation server
+api_endpoint: "http://localhost:8080"
+
+# Model configurations for running evaluations
+# These models are sent to the agent for processing requests
+
+main_model:
+  provider: "openai"
+  model_name: "gpt-5-mini"
+  api_key: "${OPENAI_API_KEY}"
+
+mini_model:
+  provider: "openai"
+  model_name: "gpt-5-nano"
+  api_key: "${OPENAI_API_KEY}"
+
+nano_model:
+  provider: "openai"
+  model_name: "gpt-5-nano"
+  api_key: "${OPENAI_API_KEY}"
+
+# Model configuration for judging evaluation responses
+# This model is used locally to assess the quality of agent responses
+
+judge_model:
+  provider: "openai"
+  model_name: "gpt-5"
+  api_key: "${OPENAI_API_KEY}"
+  # temperature: 0.1  # GPT-5 doesn't support custom temperature
+
+# Execution settings
+
+execution:
+  # Default number of evaluations to run per script execution
+  default_limit: 20
+
+  # Timeout for API requests (seconds) - set to max for slow custom API
+  timeout: 3600
+
+  # Number of concurrent evaluation requests
+  concurrent_requests: 1
+
+  # Delay between requests (seconds)
+  request_delay: 1
+
+# Reporting settings
+
+reporting:
+  # Directory for storing evaluation reports
+  reports_dir: "reports"
+
+  # Report format
+  format: "csv"
+
+  # Include detailed judge reasoning in reports
+  include_reasoning: true

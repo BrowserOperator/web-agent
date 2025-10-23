@@ -1,0 +1,59 @@
+# E-commerce web task evaluation (matches DevTools test case)
+id: "ecommerce-001"
+name: "E-commerce Product Search"
+description: "Test web task agent handling product search on shopping site"
+enabled: true
+
+target:
+  url: "https://www.amazon.com"
+
+tool: "web_task_agent"
+timeout: 90000
+
+input:
+  task: "Search Amazon for \"wireless headphones\" and find products under $100"
+  reasoning: "Testing e-commerce search workflow with price filtering"
+  context: "User wants to find wireless headphones with specific price constraint"
+  extraction_schema:
+    type: "object"
+    properties:
+      products:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            name:
+              type: "string"
+            price:
+              type: "string"
+            rating:
+              type: "string"
+            url:
+              type: "string"
+
+
+validation:
+  type: "llm-judge"
+  llm_judge:
+    model: "gpt-4o"
+    criteria:
+      - "Successfully found wireless headphones products on Amazon"
+      - "Returned products that are under $100 as requested"
+      - "Each product includes name, price, rating, and URL fields"
+      - "Results are presented in clear, structured text format (not JSON)"
+      - "All products listed are relevant to \"wireless headphones\""
+      - "Price information is clearly stated for each product"
+      - "Products are numbered or bulleted for easy reading"
+    visual_verification:
+      enabled: true
+      capture_before_action: true
+      capture_after_action: true
+      verification_prompts:
+        - "Verify Amazon search results are showing wireless headphones"
+        - "Check that visible products are under $100 price range"
+        - "Confirm product listings include name, price, and rating information"
+        - "Ensure search and filtering workflow completed successfully"
+
+metadata:
+  tags: ["web-task", "multi-step", "ecommerce", "search"]
+  priority: "high"
