@@ -3,8 +3,8 @@
 // Custom browser-agent-server startup script for Cloud Run
 // Uses environment variables for port configuration
 
-import { BrowserAgentServer } from './src/lib/BrowserAgentServer.js';
-import { HTTPWrapper } from './src/lib/HTTPWrapper.js';
+import { BrowserAgentServer } from './nodejs/src/lib/BrowserAgentServer.js';
+import { HTTPWrapper } from './nodejs/src/lib/HTTPWrapper.js';
 
 const WS_PORT = parseInt(process.env.EVAL_SERVER_WS_PORT || '8082');
 const HTTP_PORT = parseInt(process.env.EVAL_SERVER_HTTP_PORT || '8083');
@@ -14,7 +14,8 @@ console.log('🔧 Creating BrowserAgentServer...');
 const browserAgentServer = new BrowserAgentServer({
   // No authKey - authentication disabled for automated mode
   host: HOST,
-  port: WS_PORT
+  port: WS_PORT,
+  clientsDir: './clients'  // In Docker, nodejs/ is flattened to root
 });
 
 console.log('🔧 Creating HTTP wrapper...');
