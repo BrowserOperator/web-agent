@@ -27,6 +27,9 @@ services:
       - "8082:8082"
       # WebRTC UDP port range for local development
       - "57000-57100:57000-57100/udp"
+    extra_hosts:
+      # Route these domains through host gateway to reach 172.16.55.59
+      - "host.docker.internal:host-gateway"
     environment:
       # Display settings
       - DISPLAY_NUM=1
@@ -39,6 +42,7 @@ services:
       # Run as kernel user (not root)
       - RUN_AS_ROOT=false
       # Chromium flags with persistent data directory and custom DevTools frontend
+      # Note: --host-resolver-rules is in mounted /chromium/flags file to avoid shell word splitting issues
       - CHROMIUM_FLAGS=--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/
     volumes:
       # Persist recordings in local directory

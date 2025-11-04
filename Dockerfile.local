@@ -284,6 +284,10 @@ VOLUME ["/data"]
 COPY scripts/init-container.sh /usr/local/bin/init-container.sh
 RUN chmod +x /usr/local/bin/init-container.sh
 
+# Copy patched start-chromium.sh that properly quotes CHROMIUM_FLAGS
+COPY scripts/start-chromium.sh /images/chromium-headful/start-chromium.sh
+RUN chmod +x /images/chromium-headful/start-chromium.sh
+
 # Create a wrapper entrypoint that runs init script before main wrapper
 RUN echo '#!/bin/bash\n\
 set -e\n\

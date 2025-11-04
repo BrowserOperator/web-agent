@@ -76,8 +76,12 @@ WORKDIR /workspace/devtools/devtools-frontend
 # Force automated mode
 RUN sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' front_end/panels/ai_chat/core/BuildConfig.ts || true
 
+# Force complete regeneration of build files by removing the entire out directory
+# This ensures the build system picks up all changes in BUILD.gn files
+RUN rm -rf out/Default
+
 # Build Browser Operator version with local changes
-# This build is much faster since we're only building the changed files
+# This will regenerate all build files from scratch based on the copied BUILD.gn
 RUN npm run build
 
 # Create marker file

@@ -1,0 +1,89 @@
+version: "1.0"
+
+# ============================================================================
+# Browser-Agent-Server Connection (formerly eval-server)
+# ============================================================================
+# IMPORTANT: These values configure BOTH BrowserOperator and browser-agent-server
+# to enable automatic client registration without manual setup.
+
+eval_server:
+  enabled: true
+  endpoint: "ws://localhost:8082"
+
+  # Client ID: Unique identifier for this BrowserOperator instance
+  # - Use a descriptive name (e.g., "automated-browser-001")
+  # - Can be UUID format or any unique string
+  # - If not specified, BrowserOperator generates a random UUID (requires manual setup)
+  client_id: "automated-browser-001"
+
+  # Secret key: Shared secret for authentication between browser and server
+  # - MUST match between BrowserOperator and browser-agent-server
+  # - Recommendation: Use environment variable substitution for security
+  # - Example: Set EVAL_SERVER_SECRET=your-secret-here in your .env or docker-compose
+  secret_key: "${EVAL_SERVER_SECRET}"
+
+  # Client metadata (used when auto-generating client YAML on server)
+  client_name: "Automated BrowserOperator"
+  client_description: "Dockerized BrowserOperator for automated evaluations"
+  max_concurrent_evaluations: 3
+  default_timeout: 45000
+
+# ============================================================================
+# LLM Provider Configurations
+# ============================================================================
+
+providers:
+  # LiteLLM (for self-hosted LLM proxy)
+  litellm:
+    endpoint: "http://localhost:4000"
+    api_key: "${LITELLM_API_KEY}"  # Optional, some LiteLLM setups don't need auth
+
+  # OpenRouter (for multi-provider access)
+  openrouter:
+    api_key: "${OPENROUTER_API_KEY}"
+
+  # Groq (for fast inference)
+  groq:
+    api_key: "${GROQ_API_KEY}"
+
+# ============================================================================
+# Observability: Tracing Configuration
+# ============================================================================
+
+tracing:
+  enabled: true
+  langfuse:
+    endpoint: "http://localhost:3000"
+    public_key: "${LANGFUSE_PUBLIC_KEY}"
+    secret_key: "${LANGFUSE_SECRET_KEY}"
+
+# ============================================================================
+# MCP (Model Context Protocol) Integration
+# ============================================================================
+
+mcp:
+  enabled: true
+  tool_mode: "router"  # Options: "all", "router", "meta"
+  max_tools_per_turn: 20
+  max_mcp_per_turn: 8
+
+  # MCP server connections
+  servers:
+    - id: "server1"
+      name: "Example MCP Server"
+      endpoint: "ws://localhost:3001"
+      auth_type: "bearer"  # Options: "bearer", "oauth"
+      bearer_token: "${MCP_SERVER1_TOKEN}"
+
+# ============================================================================
+# Vector Database for Semantic Search
+# ============================================================================
+
+vector_db:
+  enabled: false
+  milvus:
+    endpoint: "http://localhost:19530"
+    username: "root"
+    password: "${MILVUS_PASSWORD}"
+    collection: "bookmarks"
+    openai_key: "${MILVUS_OPENAI_KEY}"  # For embeddings
