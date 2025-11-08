@@ -425,9 +425,98 @@ Edit `service.yaml` to modify Chrome behavior:
 For production WebRTC, configure a TURN server:
 
 ```yaml
-- name: NEKO_ICESERVERS  
+- name: NEKO_ICESERVERS
   value: '[{"urls": ["turn:turn.example.com:3478"], "username": "user", "credential": "pass"}]'
 ```
+
+### WebArena Configuration (Optional)
+
+The platform supports running **WebArena benchmark evaluations** against self-hosted test websites. This is completely optional and only needed if you're running WebArena tasks.
+
+#### What is WebArena?
+
+WebArena is a research benchmark with 812 tasks across 7 self-hosted websites (e-commerce, forums, GitLab, Wikipedia, etc.). To run these evaluations, you need to route specific domains to a custom IP address.
+
+#### Quick Setup
+
+**1. Configure environment variables in `evals/.env`:**
+
+```bash
+cd evals
+cp .env.example .env
+vim .env
+```
+
+Add:
+```bash
+# WebArena Infrastructure Configuration
+WEBARENA_HOST_IP=172.16.55.59        # IP where WebArena sites are hosted
+WEBARENA_NETWORK=172.16.55.0/24      # Network CIDR for routing
+
+# WebArena Site URLs (optional - customize if needed)
+SHOPPING=http://onestopmarket.com
+SHOPPING_ADMIN=http://onestopmarket.com/admin
+REDDIT=http://reddit.com
+GITLAB=http://gitlab.com
+WIKIPEDIA=http://wikipedia.org
+```
+
+**2. Start container (configuration is auto-loaded):**
+
+```bash
+make compose-up  # OR make run
+```
+
+**3. Verify WebArena routing is enabled:**
+
+```bash
+docker logs kernel-browser-extended | grep -i webarena
+```
+
+You should see:
+```
+🌐 [init] Configuring WebArena DNS mapping to 172.16.55.59...
+🌐 [init] Adding route to 172.16.55.0/24 via 172.17.0.1...
+```
+
+**4. Run WebArena evaluations:**
+
+```bash
+cd evals
+python3 run_webarena.py --task-id 1 --verbose
+```
+
+#### How It Works
+
+When `WEBARENA_HOST_IP` is set:
+- **DNS Mapping**: Chromium routes WebArena domains (gitlab.com, reddit.com, etc.) to your specified IP
+- **Network Routing**: Container adds route to reach the WebArena network
+- **Automatic**: Configuration happens on container startup via `scripts/init-container.sh`
+
+Without configuration (default):
+- System works normally with standard DNS resolution
+- WebArena routing is completely disabled
+- No impact on regular browser automation
+
+#### Deployment-Specific IPs
+
+You can use different IP addresses for different environments:
+
+```bash
+# Local development
+WEBARENA_HOST_IP=172.16.55.59
+WEBARENA_NETWORK=172.16.55.0/24
+
+# Cloud deployment
+WEBARENA_HOST_IP=34.123.45.67
+WEBARENA_NETWORK=34.123.45.0/24
+
+# Disable WebArena (default)
+WEBARENA_HOST_IP=
+WEBARENA_NETWORK=
+```
+
+**See `CLAUDE.md` for detailed WebArena configuration documentation.**
 
 ## 📁 Project Structure
 

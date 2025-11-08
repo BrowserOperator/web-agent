@@ -27,8 +27,8 @@ cd kernel-images/images/chromium-headful
 chmod +x run-docker.sh
 
 # Set environment variables for extended local development
-export IMAGE="kernel-browser:extended"
-export NAME="kernel-browser-extended"
+export IMAGE="kernel-browser:extended-webarena"
+export NAME="kernel-browser-extended-webarena"
 export ENABLE_WEBRTC="true"
 export RUN_AS_ROOT="false"
 

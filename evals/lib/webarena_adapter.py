@@ -247,10 +247,12 @@ class WebArenaTaskLoader:
 
         Args:
             config_dir: Path to WebArena config_files directory.
-                       Defaults to webarena/config_files/
+                       Defaults to submodules/webarena/config_files/
         """
         if config_dir is None:
-            webarena_dir = Path(__file__).parent.parent / 'webarena'
+            # Go from evals/lib/ to project root, then to submodules/webarena/config_files
+            project_root = Path(__file__).parent.parent.parent
+            webarena_dir = project_root / 'submodules' / 'webarena'
             config_dir = webarena_dir / 'config_files'
 
         self.config_dir = Path(config_dir)

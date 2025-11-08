@@ -9,7 +9,9 @@ from pathlib import Path
 
 def list_shopping_tasks():
     """List all shopping tasks with indices and details."""
-    test_raw_file = Path(__file__).parent / 'webarena' / 'config_files' / 'test.raw.json'
+    # Path from evals/webarena/ to project root, then to submodules
+    project_root = Path(__file__).parent.parent.parent
+    test_raw_file = project_root / 'submodules' / 'webarena' / 'config_files' / 'test.raw.json'
 
     if not test_raw_file.exists():
         print(f"Error: {test_raw_file} not found")

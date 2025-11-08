@@ -18,18 +18,18 @@ help: ## Show this help message
 
 init: ## Initialize submodules (run this first)
 	@echo "📦 Initializing submodules..."
-	git submodule update --init --depth 1 kernel-images
-	git submodule update --init --depth 1 browser-operator-core
+	cd ../../ && git submodule update --init --depth 1 kernel-images
+	cd ../../ && git submodule update --init --depth 1 browser-operator-core
 	@echo "✅ Submodules initialized"
 
 init-devtools: ## Initialize browser-operator-core submodule only
 	@echo "📦 Initializing browser-operator-core submodule..."
-	git submodule update --init --depth 1 browser-operator-core
+	cd ../../ && git submodule update --init --depth 1 browser-operator-core
 	@echo "✅ browser-operator-core submodule initialized"
 
 build-devtools-base: init-devtools ## Build DevTools base image (slow, rarely needed)
 	@echo "🔨 Building DevTools base layer (this takes ~30 minutes)..."
-	docker build -f Dockerfile.devtools --target devtools-base -t browser-operator-devtools:base .
+	cd ../../ && docker build -f Dockerfile.devtools --target devtools-base -t browser-operator-devtools:base .
 	@echo "✅ DevTools base built and cached"
 
 build-devtools: init-devtools ## Build DevTools image (smart: uses cache)
@@ -40,7 +40,7 @@ build-devtools: init-devtools ## Build DevTools image (smart: uses cache)
 		$(MAKE) --no-print-directory build-devtools-base; \
 	fi
 	@echo "🔨 Building Browser Operator DevTools..."
-	docker build -f Dockerfile.devtools --target devtools-server -t browser-operator-devtools:latest .
+	cd ../../ && docker build -f Dockerfile.devtools --target devtools-server -t browser-operator-devtools:latest .
 	@echo "✅ DevTools built: browser-operator-devtools:latest"
 
 rebuild-devtools: ## Fast rebuild DevTools with local changes (recommended)
@@ -49,12 +49,12 @@ rebuild-devtools: ## Fast rebuild DevTools with local changes (recommended)
 		echo "❌ DevTools base not found. Building base first..."; \
 		$(MAKE) --no-print-directory build-devtools-base; \
 	fi
-	docker build -f Dockerfile.devtools --target devtools-server -t browser-operator-devtools:latest .
+	cd ../../ && docker build -f Dockerfile.devtools --target devtools-server -t browser-operator-devtools:latest .
 	@echo "✅ DevTools rebuilt with your local changes"
 
 rebuild-devtools-full: ## Force complete rebuild from scratch (slow, rarely needed)
 	@echo "🔄 Force rebuilding DevTools from scratch (this will take ~30 minutes)..."
-	docker build -f Dockerfile.devtools --no-cache --target devtools-server -t browser-operator-devtools:latest .
+	cd ../../ && docker build -f Dockerfile.devtools --no-cache --target devtools-server -t browser-operator-devtools:latest .
 	@echo "✅ DevTools completely rebuilt"
 
 build: init ## Build extended image with DevTools frontend (smart: only builds DevTools if needed)
@@ -66,19 +66,19 @@ build: init ## Build extended image with DevTools frontend (smart: only builds D
 	else \
 		echo "✅ Using existing DevTools image"; \
 	fi
-	docker build -f Dockerfile.local -t kernel-browser:extended .
+	cd ../../ && docker build -f deployments/local-webarena/Dockerfile -t kernel-browser:extended-webarena .
 	@echo "✅ Extended build complete"
 
 rebuild: init ## Force complete rebuild (including DevTools)
 	@echo "🔄 Force rebuilding everything from scratch..."
 	$(MAKE) --no-print-directory build-devtools
-	docker build -f Dockerfile.local -t kernel-browser:extended .
+	cd ../../ && docker build -f deployments/local-webarena/Dockerfile -t kernel-browser:extended-webarena .
 	@echo "✅ Complete rebuild finished"
 
 run: ## Run extended container with DevTools (interactive)
 	@echo "🚀 Starting extended kernel-browser with DevTools..."
 	@if [ -n "$(URLS)" ]; then echo "📄 Opening URLs: $(URLS)"; fi
-	@./deployment/local/run-local.sh
+	@./run-local.sh
 
 compose-up: build ## Start with docker-compose (background)
 	@echo "🚀 Starting with docker-compose..."
@@ -134,17 +134,17 @@ test: ## Test Browser Agent Server API with simple eval
 	@curl -s -o /dev/null -w "   Status: %{http_code}\n" http://localhost:8080/status || (echo "   ❌ API not responding"; exit 1)
 	@echo ""
 	@echo "2️⃣  Running simple eval test (test-simple/math-001.yaml)..."
-	@cd evals && python3 run.py --path data/test-simple/math-001.yaml || (echo "   ❌ Eval test failed"; exit 1)
+	@cd ../../evals/native && python3 run.py --path data/test-simple/math-001.yaml || (echo "   ❌ Eval test failed"; exit 1)
 	@echo ""
 	@echo "✅ API is working correctly!"
 
 clean: stop ## Clean up everything
 	@echo "🧹 Cleaning up..."
 	docker-compose down -v 2>/dev/null || true
-	docker rmi kernel-browser:extended 2>/dev/null || true
+	docker rmi kernel-browser:extended-webarena 2>/dev/null || true
 	docker system prune -f
 	rm -rf recordings/* 2>/dev/null || true
-	rm -rf kernel-images/images/chromium-headful/.tmp 2>/dev/null || true
+	rm -rf ../../kernel-images/images/chromium-headful/.tmp 2>/dev/null || true
 	@echo "✅ Cleanup complete"
 
 clean-devtools: ## Clean DevTools images and cache

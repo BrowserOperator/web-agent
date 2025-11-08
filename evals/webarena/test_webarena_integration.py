@@ -7,8 +7,8 @@ Tests imports, task loading, and basic functionality.
 import sys
 from pathlib import Path
 
-# Add lib directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add parent directory to path to import from evals/lib
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def test_imports():
     """Test that all modules import correctly."""

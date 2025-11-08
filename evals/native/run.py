@@ -16,8 +16,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-# Add lib directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add parent directory to path to import from evals/lib
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lib import (
     ConfigLoader,

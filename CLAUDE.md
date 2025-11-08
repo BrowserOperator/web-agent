@@ -53,55 +53,84 @@ supervisord
 web-agent/
 ├── browser-operator-core/      # Submodule: DevTools frontend source
 ├── kernel-images/              # Submodule: Base browser environment
-├── deployment/                 # Deployment configurations
+├── submodules/                 # Git submodules
+│   └── webarena/               # WebArena benchmark (for webarena evals)
+├── deployments/                # Deployment configurations
 │   ├── cloudrun/               # Google Cloud Run deployment
 │   │   ├── deploy.sh           # Cloud deployment script
 │   │   ├── cloudbuild.yaml     # CI/CD pipeline config
 │   │   ├── service.yaml        # Cloud Run service definition
 │   │   ├── service-secrets.yaml # Service with Secret Manager
 │   │   ├── cloudrun-wrapper.sh # Cloud Run entrypoint
-│   │   ├── cloudrun-kernel-wrapper.sh # Alternative wrapper
 │   │   ├── supervisord-cloudrun.conf # Supervisor for Cloud Run
-│   │   └── nginx.conf          # Reverse proxy config
-│   └── local/                  # Local deployment
-│       └── run-local.sh        # Interactive Docker run script
-├── nginx/                      # Nginx configurations
-│   └── nginx-devtools.conf     # DevTools nginx config
-├── scripts/                    # Utility scripts
-│   ├── init-container.sh       # Auto-cleanup of lock files
-│   └── test-eval-server.sh     # Eval server build test
-├── supervisor/services/        # Service configs (override defaults)
-│   ├── chromium.conf           # Auto-open DevTools
-│   ├── eval-server.conf        # Eval server with CDP_PORT=9223
-│   ├── neko.conf
-│   └── nginx-devtools.conf
-├── eval-server/
-│   └── nodejs/                 # Eval server source (use this, NOT submodule)
+│   │   ├── nginx.conf          # Reverse proxy config
+│   │   ├── Dockerfile          # Cloud Run Docker build
+│   │   └── scripts/            # Cloud Run specific scripts
+│   ├── local/                  # Local deployment
+│   │   ├── run-local.sh        # Interactive Docker run script
+│   │   ├── docker-compose.yml  # Docker Compose config
+│   │   ├── Dockerfile          # Local Docker build
+│   │   ├── Makefile            # Local build commands
+│   │   └── scripts/            # Local specific scripts
+│   │       ├── init-container.sh   # Auto-cleanup of lock files
+│   │       └── start-chromium.sh   # Chromium startup script
+│   ├── local-webarena/         # Local deployment for WebArena evals
+│   │   ├── run-local.sh        # WebArena-specific run script
+│   │   ├── docker-compose.yml  # Docker Compose config
+│   │   ├── Dockerfile          # WebArena Docker build
+│   │   ├── Makefile            # WebArena build commands
+│   │   └── scripts/            # WebArena specific scripts
+│   └── commons/                # Shared configs across deployments
+│       ├── nginx/              # Nginx configurations
+│       │   └── nginx-devtools.conf # DevTools nginx config
+│       └── supervisor/         # Supervisor configurations
+│           ├── services/       # Service configs (local)
+│           │   ├── chromium.conf           # Auto-open DevTools
+│           │   ├── browser-agent-server.conf # Browser agent with CDP_PORT=9223
+│           │   ├── neko.conf
+│           │   └── nginx-devtools.conf
+│           └── services-cloudrun/  # Service configs (cloud run)
+│               └── browser-agent-server.conf
+├── browser-agent-server/
+│   └── nodejs/                 # Browser agent server source
 │       ├── src/
 │       │   ├── api-server.js   # HTTP REST API
 │       │   ├── evaluation-server.js  # WebSocket + CDP
-│       │   └── lib/            # EvaluationLoader, EvaluationStack, judges
+│       │   └── lib/            # BrowserAgentServer, judges
 │       ├── start.js            # Server entrypoint
 │       └── package.json
-├── evals/
-│   ├── run.py                  # Python evaluation runner
-│   ├── lib/judge.py            # LLMJudge, VisionJudge, SimpleJudge
-│   └── data/                   # Evaluation YAML files
-├── Dockerfile.local            # Main Docker build (local dev)
+├── evals/                      # Evaluation framework
+│   ├── .env                    # API keys (gitignored, copy from .env.example)
+│   ├── config.yml              # Global eval configuration
+│   ├── lib/                    # Shared evaluation library
+│   │   ├── eval_loader.py      # YAML evaluation loader
+│   │   ├── api_client.py       # HTTP client for browser-agent-server
+│   │   ├── judge.py            # LLMJudge, VisionJudge, SimpleJudge
+│   │   ├── webarena_adapter.py # WebArena task adapter
+│   │   └── webarena_evaluators.py # WebArena evaluators
+│   ├── native/                 # Native evaluation runner
+│   │   ├── run.py              # Main runner script
+│   │   └── data/               # Native evaluation YAML files
+│   │       ├── test-simple/
+│   │       ├── action-agent/
+│   │       ├── web-task-agent/
+│   │       └── ...
+│   └── webarena/               # WebArena evaluation runner
+│       ├── run_webarena.py     # WebArena runner script
+│       ├── data/               # WebArena-specific data
+│       └── webarena-local/     # Local WebArena environment setup
 ├── Dockerfile.devtools         # DevTools frontend build
-├── Dockerfile.cloudrun         # Cloud Run build
-├── docker-compose.yml          # Local deployment config
-├── Makefile                    # Build/deployment commands
+├── Dockerfile.kernel-cloud     # Kernel cloud build
 ├── CLAUDE.md                   # This file
 └── README.md                   # User documentation
 ```
 
 ## Key Files and What They Do
 
-### Dockerfile.local
+### deployments/local/Dockerfile
 Multi-stage build that:
 1. Copies pre-built DevTools from `browser-operator-devtools:latest`
-2. Builds eval-server with `npm install`
+2. Builds browser-agent-server with `npm install`
 3. Builds kernel-images Go API
 4. Builds WebRTC client
 5. Compiles custom Xorg drivers
@@ -109,14 +138,14 @@ Multi-stage build that:
 7. Adds init script for automatic lock cleanup
 
 **Critical sections:**
-- Line 284: Copies `scripts/init-container.sh` for lock cleanup
-- Line 288-294: Creates `/entrypoint.sh` wrapper
-- Line 299: Sets entrypoint to run init before main wrapper
+- Copies `deployments/local/scripts/init-container.sh` for lock cleanup
+- Creates `/entrypoint.sh` wrapper
+- Sets entrypoint to run init before main wrapper
 
-### docker-compose.yml
+### deployments/local/docker-compose.yml
 Configures container with:
 - Port mappings for all services (8000-8082, 9222, 444)
-- Volume mounts: recordings, chromium-data, eval-server code
+- Volume mounts: recordings, chromium-data, browser-agent-server code
 - tmpfs: `/dev/shm` and `/tmp` (prevents lock file persistence)
 - Environment: `CHROMIUM_FLAGS` with custom DevTools frontend
 
@@ -125,21 +154,23 @@ Configures container with:
 - Added `/tmp` tmpfs mount to prevent X11 lock persistence
 - Added `--custom-devtools-frontend=http://localhost:8001/`
 
-### scripts/init-container.sh
+### deployments/*/scripts/init-container.sh
 Runs on every container start to clean:
 - Chromium lock files (`SingletonLock`, `SingletonSocket`, `SingletonCookie`)
 - X11 lock files (`/tmp/.X*-lock`)
 
 This prevents "profile in use" and "display already active" errors.
 
-### eval-server/nodejs/src/api-server.js
+Available in all deployment types: `local/`, `local-webarena/`, `cloudrun/`
+
+### browser-agent-server/nodejs/src/api-server.js
 HTTP REST API with endpoints:
 - `POST /v1/responses` - Execute browser automation tasks
 - `POST /page/content` - Get page HTML/text content
 - `POST /page/screenshot` - Capture screenshots
 - `GET /status` - Health check
 
-### supervisor/services/eval-server.conf
+### deployments/commons/supervisor/services/browser-agent-server.conf
 **Critical environment variables:**
 ```ini
 environment=NODE_ENV="production",PORT="8082",API_PORT="8080",HOST="0.0.0.0",CDP_PORT="9223"
@@ -147,7 +178,7 @@ environment=NODE_ENV="production",PORT="8082",API_PORT="8080",HOST="0.0.0.0",CDP
 
 Note: CDP_PORT must be 9223 (not 9222) to match Chromium configuration.
 
-### Makefile
+### deployments/local/Makefile (and deployments/local-webarena/Makefile)
 Key targets:
 - `make init` - Initialize git submodules
 - `make build-devtools` - Build DevTools base (slow, ~30 min, cached)
@@ -159,12 +190,12 @@ Key targets:
 - `make stop` - Stop all containers
 - `make clean` - Clean up everything
 
-### deployment/local/run-local.sh
+### deployments/local/run-local.sh
 Interactive Docker run script that:
 - Sources kernel-images common build variables
 - Creates local recordings directory
 - Configures Chromium data persistence (customizable with `CHROMIUM_DATA_HOST`)
-- **Cleans lock files from host before starting** (lines 84-89)
+- **Cleans lock files from host before starting**
 - Builds docker run arguments with all port mappings
 - Supports `URLS` environment variable to open URLs on startup
 - Uses custom DevTools frontend flag
@@ -172,11 +203,11 @@ Interactive Docker run script that:
 
 **Key difference from docker-compose:**
 - Lock cleanup happens on HOST before container starts
-- Eval server code is NOT volume-mounted (baked into image)
+- Browser-agent-server code is NOT volume-mounted (baked into image)
 - More flexible for custom configurations via environment variables
 - Better for seeing startup issues and debugging
 
-### deployment/cloudrun/
+### deployments/cloudrun/
 Contains all Google Cloud Run deployment files:
 - `deploy.sh` - Automated deployment script with Twilio TURN setup
 - `cloudbuild.yaml` - CI/CD pipeline for Cloud Build
@@ -184,22 +215,24 @@ Contains all Google Cloud Run deployment files:
 - `cloudrun-wrapper.sh` - Cloud Run container entrypoint
 - `supervisord-cloudrun.conf` - Supervisor configuration for Cloud Run
 - `nginx.conf` - Reverse proxy for Cloud Run port requirements
+- `Dockerfile` - Cloud Run specific Docker build
+- `scripts/` - Cloud Run specific scripts
 
-### nginx/
+### deployments/commons/nginx/
 Nginx configuration files:
-- `nginx-devtools.conf` - DevTools UI server config (used by Dockerfile.local)
+- `nginx-devtools.conf` - DevTools UI server config (used by all deployments)
 
-### scripts/
-Utility scripts:
-- `init-container.sh` - Automatic lock file cleanup on container start
-- `test-eval-server.sh` - Test eval-server Docker build stage
+### deployments/commons/supervisor/
+Supervisor configuration files:
+- `services/` - Service configs for local deployments
+- `services-cloudrun/` - Service configs for cloud run deployments
 
 ## Common Issues and Solutions
 
 ### 1. Chromium Profile Lock Errors
 **Symptom:** "The profile appears to be in use by another Chromium process"
 
-**Solution:** Now handled automatically by `scripts/init-container.sh`
+**Solution:** Now handled automatically by `deployments/*/scripts/init-container.sh`
 - Runs on every container start
 - Cleans lock files before services start
 - No manual intervention needed
@@ -207,31 +240,31 @@ Utility scripts:
 ### 2. X11 Display Lock Errors
 **Symptom:** "Server is already active for display 1"
 
-**Solution:** Fixed by adding `/tmp` to tmpfs in docker-compose.yml
-- Line 54: `- /tmp` in tmpfs section
+**Solution:** Fixed by adding `/tmp` to tmpfs in `deployments/local/docker-compose.yml`
+- `- /tmp` in tmpfs section
 - Prevents lock files from persisting across restarts
 
 ### 3. CDP Connection Failures
 **Symptom:** "Failed to connect to Chrome DevTools Protocol"
 
-**Solution:** Ensure CDP_PORT=9223 in `supervisor/services/eval-server.conf`
+**Solution:** Ensure CDP_PORT=9223 in `deployments/commons/supervisor/services/browser-agent-server.conf`
 - Chromium runs on port 9223 (not 9222)
 - Check logs: `docker logs kernel-browser-extended | grep CDP`
 
 ### 4. Module Not Found Errors
-**Symptom:** "Cannot find module 'js-yaml'" or "Cannot find module 'EvaluationLoader.js'"
+**Symptom:** "Cannot find module 'js-yaml'" or "Cannot find module 'BrowserAgentServer.js'"
 
 **Solution:**
-- Ensure `eval-server/nodejs/` has all dependencies
-- Run `cd eval-server/nodejs && npm install`
-- Copy missing files from `browser-operator-core/eval-server/` if needed
-- **Always use local `eval-server/`, NOT the submodule version**
+- Ensure `browser-agent-server/nodejs/` has all dependencies
+- Run `cd browser-agent-server/nodejs && npm install`
+- Browser-agent-server code is in `browser-agent-server/nodejs/`
 
 ### 5. Docker Volume Caching on macOS
 **Symptom:** File changes not visible in running container with docker-compose
 
 **Solution:** Completely recreate container
 ```bash
+cd deployments/local
 docker-compose down
 docker-compose up -d
 ```
@@ -342,12 +375,14 @@ make run                     # Restart after rebuild
 #### With Docker Compose:
 
 ```bash
-# Eval server changes (NO REBUILD)
-vim eval-server/nodejs/src/api-server.js
+cd deployments/local
+
+# Browser-agent-server changes (NO REBUILD)
+vim ../../browser-agent-server/nodejs/src/api-server.js
 docker-compose restart       # Volume-mounted, picks up changes
 
 # DevTools changes
-vim browser-operator-core/front_end/panels/ai_chat/...
+vim ../../browser-operator-core/front_end/panels/ai_chat/...
 make rebuild-devtools        # Fast rebuild
 docker-compose down
 docker-compose up -d
@@ -360,7 +395,9 @@ make compose-up
 #### With Direct Docker Run:
 
 ```bash
-# ANY code changes (eval-server OR DevTools)
+cd deployments/local
+
+# ANY code changes (browser-agent-server OR DevTools)
 make rebuild                 # Must rebuild
 # Press Ctrl+C in terminal running 'make run'
 make run                     # Restart
@@ -393,21 +430,19 @@ CHROMIUM_DATA_HOST=/tmp/browser URLS="https://example.com" make run
 
 ## Important Notes
 
-### Always Use Local eval-server/
-**DO NOT** use files from `browser-operator-core/eval-server/`
+### Browser Agent Server Location
+The browser agent server code is in: `browser-agent-server/nodejs/`
 
-The correct path is: `eval-server/nodejs/`
-
-Dockerfile.devtools has been updated to copy from local directory.
+This is the main server that handles browser automation requests via HTTP/WebSocket APIs.
 
 ### CDP Port is 9223, Not 9222
 The default Chrome DevTools port is 9222, but this project uses 9223.
 
 Check these files:
-- `supervisor/services/eval-server.conf` - Must have `CDP_PORT="9223"`
+- `deployments/commons/supervisor/services/browser-agent-server.conf` - Must have `CDP_PORT="9223"`
 - Chromium startup config uses port 9223
 
-### Dependencies in eval-server/nodejs/
+### Dependencies in browser-agent-server/nodejs/
 Required packages:
 - js-yaml (for parsing YAML eval files)
 - express (HTTP server)
@@ -417,25 +452,202 @@ Required packages:
 All managed by `package.json` and `npm install`.
 
 ### Lock File Cleanup is Automatic
-After implementing `scripts/init-container.sh`, you should never need to manually clean lock files again. The script runs on every container start.
+After implementing `deployments/*/scripts/init-container.sh`, you should never need to manually clean lock files again. The script runs on every container start.
+
+## WebArena Configuration
+
+The system supports running **WebArena benchmark evaluations** (812 tasks across 7 self-hosted websites). WebArena requires special network configuration to route specific domains to a custom IP address.
+
+### Configuration Overview
+
+WebArena configuration is **completely optional** and **pluggable**:
+- **Without configuration**: System works normally with standard DNS resolution
+- **With configuration**: Domains like `gitlab.com`, `reddit.com`, `wikipedia.org` route to your WebArena deployment IP
+
+### Environment Variables
+
+All WebArena configuration is done via environment variables in `evals/.env`:
+
+```bash
+# WebArena Infrastructure Configuration (Optional)
+# Leave empty to disable WebArena routing
+
+# IP address where WebArena sites are hosted (e.g., 172.16.55.59)
+WEBARENA_HOST_IP=
+
+# Network CIDR for routing to WebArena infrastructure (e.g., 172.16.55.0/24)
+WEBARENA_NETWORK=
+
+# WebArena Site URLs (Optional - for custom deployments)
+SHOPPING=http://onestopmarket.com
+SHOPPING_ADMIN=http://onestopmarket.com/admin
+REDDIT=http://reddit.com
+GITLAB=http://gitlab.com
+WIKIPEDIA=http://wikipedia.org
+MAP=http://openstreetmap.org
+HOMEPAGE=http://homepage.com
+```
+
+### How It Works
+
+When `WEBARENA_HOST_IP` and `WEBARENA_NETWORK` are set:
+
+1. **DNS Mapping** (`scripts/init-container.sh`):
+   - Generates Chromium `--host-resolver-rules` flag dynamically
+   - Maps WebArena domains to specified IP address
+   - File: `@mount/chromium-flags/flags` (auto-generated on container start)
+
+2. **Network Routing** (`scripts/init-container.sh`):
+   - Adds route to WebArena network via Docker host gateway
+   - Enables container to reach hosts on the specified network
+   - Example: `ip route add 172.16.55.0/24 via <gateway>`
+
+3. **Environment Propagation**:
+   - Variables passed from `evals/.env` to container
+   - Available in both `docker-compose.yml` and `run-local.sh`
+   - Python scripts use `os.environ.get()` for site URLs
+
+### Setting Up WebArena
+
+**Step 1: Configure environment variables**
+
+```bash
+# Copy example file
+cd evals
+cp .env.example .env
+
+# Edit .env and set WebArena configuration
+vim .env
+```
+
+Add:
+```bash
+WEBARENA_HOST_IP=172.16.55.59
+WEBARENA_NETWORK=172.16.55.0/24
+```
+
+**Step 2: Start container with configuration**
+
+The configuration is automatically loaded:
+
+```bash
+# With docker-compose (reads .env automatically)
+make compose-up
+
+# With run-local.sh (sources evals/.env)
+make run
+```
+
+**Step 3: Verify configuration**
+
+Check container logs to confirm WebArena routing is enabled:
+
+```bash
+docker logs kernel-browser-extended | grep -i webarena
+```
+
+You should see:
+```
+🌐 [init] Configuring WebArena DNS mapping to 172.16.55.59...
+🌐 [init] Adding route to 172.16.55.0/24 via 172.17.0.1...
+```
+
+**Step 4: Run WebArena evaluations**
+
+```bash
+cd evals
+python3 run_webarena.py --task-id 1 --verbose
+```
+
+### Disabling WebArena (Default Behavior)
+
+To disable WebArena routing, simply leave the variables empty in `evals/.env`:
+
+```bash
+WEBARENA_HOST_IP=
+WEBARENA_NETWORK=
+```
+
+Or remove them entirely. The system will:
+- Skip DNS mapping in Chromium flags
+- Skip network route addition
+- Use normal DNS resolution for all domains
+- Log: `ℹ️ [init] WEBARENA_HOST_IP not configured, skipping WebArena routing`
+
+### Deployment-Specific Configuration
+
+When deploying to different environments (local, cloud, staging), you can use different IP addresses:
+
+**Local WebArena (Docker network)**
+```bash
+WEBARENA_HOST_IP=172.16.55.59
+WEBARENA_NETWORK=172.16.55.0/24
+```
+
+**Cloud WebArena (external IP)**
+```bash
+WEBARENA_HOST_IP=34.123.45.67
+WEBARENA_NETWORK=34.123.45.0/24
+```
+
+**Public sites only (no routing)**
+```bash
+WEBARENA_HOST_IP=
+WEBARENA_NETWORK=
+```
+
+### Files Affected by WebArena Configuration
+
+1. **evals/.env.example** - Environment variable template
+2. **deployments/*/scripts/init-container.sh** - Dynamic flag generation and routing
+3. **deployments/local-webarena/docker-compose.yml** - Environment variable propagation
+4. **deployments/local-webarena/run-local.sh** - Environment loading for direct Docker run
+5. **evals/webarena/login_webarena_sites.py** - Uses env vars for site URLs
+6. **@mount/chromium-flags/flags** - Auto-generated based on `WEBARENA_HOST_IP`
+
+### Troubleshooting
+
+**WebArena domains not resolving to custom IP:**
+- Check `WEBARENA_HOST_IP` is set in `evals/.env`
+- Restart container to regenerate flags file
+- Verify flags file: `cat @mount/chromium-flags/flags | grep host-resolver-rules`
+
+**Container cannot reach WebArena network:**
+- Check `WEBARENA_NETWORK` is set correctly
+- Ensure Docker has network access to that subnet
+- Verify route: `docker exec kernel-browser-extended ip route | grep 172.16.55`
+
+**Evaluations failing with network errors:**
+- Confirm WebArena infrastructure is running and accessible
+- Test connectivity: `docker exec kernel-browser-extended ping 172.16.55.59`
+- Check firewall rules between Docker host and WebArena network
 
 ## Testing
 
 ### Quick API Test
 ```bash
+cd deployments/local
 make test
 ```
 
-Runs `evals/data/test-simple/math-001.yaml` which:
+Runs `evals/native/data/test-simple/math-001.yaml` which:
 1. Checks API endpoint health
 2. Sends simple math question via `/v1/responses`
 3. Validates response using SimpleJudge
 4. Reports PASS/FAIL
 
 ### Running Specific Evals
+
+**Native evals:**
 ```bash
-cd evals
+cd evals/native
 python3 run.py --path data/web-task-agent/flight-001.yaml --verbose
+```
+
+**WebArena evals:**
+```bash
+cd evals/webarena
+python3 run_webarena.py --task-id 1 --verbose
 ```
 
 ### Manual API Testing
@@ -482,10 +694,25 @@ curl -X POST http://localhost:8080/page/screenshot \
 
 ## Recent Changes Summary
 
+### Repository Restructuring
+1. **Reorganized deployments** - Moved to `deployments/` with separate configs for:
+   - `cloudrun/` - Google Cloud Run deployment
+   - `local/` - Local development deployment
+   - `local-webarena/` - WebArena-specific deployment
+   - `commons/` - Shared configs (nginx, supervisor)
+
+2. **Reorganized evaluations** - Moved to `evals/` with separate runners:
+   - `native/` - Native evaluation runner with YAML-based tests
+   - `webarena/` - WebArena benchmark runner
+   - `lib/` - Shared evaluation library (judges, adapters, loaders)
+
+3. **Renamed eval-server** - Now called `browser-agent-server/` to better reflect its purpose
+
+### Technical Fixes
 1. **Fixed docker-compose.yml** - Added missing port mappings (8000, 8001, 8081, 8082)
 2. **Fixed tmpfs mounts** - Added `/tmp` to prevent X11 lock persistence
-3. **Added automatic lock cleanup** - `scripts/init-container.sh` runs on every start
+3. **Added automatic lock cleanup** - `deployments/*/scripts/init-container.sh` runs on every start
 4. **Updated Chromium flags** - Added `--custom-devtools-frontend=http://localhost:8001/`
-5. **Fixed CDP port** - Set `CDP_PORT="9223"` in eval-server supervisor config
-6. **Created make test** - Quick verification of eval API functionality
-7. **Fixed eval-server source** - Always use local `eval-server/`, not submodule
+5. **Fixed CDP port** - Set `CDP_PORT="9223"` in browser-agent-server supervisor config
+6. **Created make test** - Quick verification of API functionality
+7. **Fixed path resolution** - `eval_loader.py` now supports new `evals/native/data/` structure

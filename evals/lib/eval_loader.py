@@ -182,12 +182,23 @@ class EvalLoader:
 
         Args:
             data_dir: Path to data directory containing evaluation YAML files.
-                     If None, uses evals/data/
+                     If None, tries to find data/ relative to caller's location
         """
         if data_dir is None:
-            # Default to data/ in evals directory
-            script_dir = Path(__file__).parent.parent
-            data_dir = script_dir / "data"
+            # Try to find data/ directory relative to current working directory
+            # This supports the new structure where run.py is in evals/native/
+            # and data is at evals/native/data/
+            import os
+            cwd = Path(os.getcwd())
+
+            # First try: ./data (for evals/native/ and evals/webarena/)
+            candidate = cwd / "data"
+            if candidate.exists():
+                data_dir = candidate
+            else:
+                # Fallback: legacy location at evals/data/
+                script_dir = Path(__file__).parent.parent
+                data_dir = script_dir / "data"
 
         self.data_dir = Path(data_dir)
 

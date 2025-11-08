@@ -12,8 +12,8 @@ import os
 import sys
 from pathlib import Path
 
-# Add lib to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add parent directory to path to import from evals/lib
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lib import ConfigLoader, APIClient
 from lib.webarena_adapter import WebArenaExecutor, WebArenaTask, WebArenaTaskLoader
@@ -31,7 +31,9 @@ def load_shopping_tasks(limit=10, start_index=0, task_indices=None):
     Returns:
         List of task configurations
     """
-    test_raw_file = Path(__file__).parent / 'webarena' / 'config_files' / 'test.raw.json'
+    # Path from evals/webarena/ to project root, then to submodules
+    project_root = Path(__file__).parent.parent.parent
+    test_raw_file = project_root / 'submodules' / 'webarena' / 'config_files' / 'test.raw.json'
 
     if not test_raw_file.exists():
         print(f"Error: {test_raw_file} not found")

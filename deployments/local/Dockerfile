@@ -208,7 +208,7 @@ COPY kernel-images/images/chromium-headful/supervisord.conf /etc/supervisor/supe
 COPY kernel-images/images/chromium-headful/supervisor/services/ /etc/supervisor/conf.d/services/
 
 # Override chromium.conf with local version that includes auto-open-devtools
-COPY supervisor/services/chromium.conf /etc/supervisor/conf.d/services/chromium.conf
+COPY deployments/commons/supervisor/services/chromium.conf /etc/supervisor/conf.d/services/chromium.conf
 
 # copy the kernel-images API binary built in the builder stage
 COPY --from=server-builder /out/kernel-images-api /usr/local/bin/kernel-images-api
@@ -221,18 +221,18 @@ COPY --from=server-builder /out/kernel-images-api /usr/local/bin/kernel-images-a
 COPY --from=devtools-source /usr/share/nginx/html /usr/share/nginx/devtools
 
 # Create DevTools nginx configuration
-COPY nginx/nginx-devtools.conf /etc/nginx/sites-available/devtools
+COPY deployments/commons/nginx/nginx-devtools.conf /etc/nginx/sites-available/devtools
 RUN ln -s /etc/nginx/sites-available/devtools /etc/nginx/sites-enabled/devtools && \
     rm /etc/nginx/sites-enabled/default
 
 # Add DevTools nginx service to supervisor
-COPY supervisor/services/nginx-devtools.conf /etc/supervisor/conf.d/services/nginx-devtools.conf
+COPY deployments/commons/supervisor/services/nginx-devtools.conf /etc/supervisor/conf.d/services/nginx-devtools.conf
 
 # Add eval server service to supervisor
-COPY supervisor/services/browser-agent-server.conf /etc/supervisor/conf.d/services/browser-agent-server.conf
+COPY deployments/commons/supervisor/services/browser-agent-server.conf /etc/supervisor/conf.d/services/browser-agent-server.conf
 
 # Add neko service to supervisor (configured for port 8000)
-COPY supervisor/services/neko.conf /etc/supervisor/conf.d/services/neko.conf
+COPY deployments/commons/supervisor/services/neko.conf /etc/supervisor/conf.d/services/neko.conf
 
 # Create nginx temp directories and set permissions
 RUN mkdir -p /var/lib/nginx/body \
@@ -281,11 +281,11 @@ VOLUME ["/data"]
 # ============================================================================
 
 # Copy container initialization script that cleans up lock files
-COPY scripts/init-container.sh /usr/local/bin/init-container.sh
+COPY deployments/local/scripts/init-container.sh /usr/local/bin/init-container.sh
 RUN chmod +x /usr/local/bin/init-container.sh
 
 # Copy patched start-chromium.sh that properly quotes CHROMIUM_FLAGS
-COPY scripts/start-chromium.sh /images/chromium-headful/start-chromium.sh
+COPY deployments/local/scripts/start-chromium.sh /images/chromium-headful/start-chromium.sh
 RUN chmod +x /images/chromium-headful/start-chromium.sh
 
 # Create a wrapper entrypoint that runs init script before main wrapper

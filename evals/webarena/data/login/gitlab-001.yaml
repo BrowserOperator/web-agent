@@ -1,0 +1,46 @@
+# Login to WebArena GitLab site
+id: "login-gitlab-001"
+name: "Login to GitLab"
+description: "Login to WebArena GitLab instance as byteblaze user"
+enabled: true
+
+target:
+  url: "${GITLAB:-http://gitlab.com}/users/sign_in"
+  wait_for: "domcontentloaded"
+  wait_timeout: 10000
+
+tool: "action_agent"
+timeout: 60000
+
+input:
+  objective: |
+    Fill in the username field with "byteblaze".
+    Fill in the password field with "hello1234".
+    Click the "Sign in" button.
+    Wait for the GitLab dashboard to load.
+
+validation:
+  type: "llm-judge"
+  llm_judge:
+    model: "gpt-4.1-mini"
+    criteria:
+      - "Successfully navigated to the GitLab login page"
+      - "Filled in the username field with byteblaze"
+      - "Filled in the password field"
+      - "Clicked the Sign in button"
+      - "Login was successful (GitLab dashboard or projects page visible)"
+    visual_verification:
+      enabled: true
+      prompts:
+        - "Verify that the user is logged into GitLab (user avatar or menu visible)"
+        - "Check that no login error messages are displayed"
+        - "Confirm GitLab navigation menu is accessible"
+
+metadata:
+  tags: ["webarena", "login", "gitlab", "authentication"]
+  priority: "high"
+  site: "gitlab"
+  account:
+    username: "byteblaze"
+    # Password stored in task description for reference only
+  owner: "webarena"

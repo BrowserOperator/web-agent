@@ -6,7 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the **Evaluation Framework** for testing browser automation agents. It uses **LLM-as-a-judge** to evaluate agent responses against defined criteria, with support for **visual verification** through screenshots.
 
-The framework is completely independent of the main browser-agent server and operates as a standalone Python application that communicates with the eval-server API at http://localhost:8080.
+The framework is completely independent of the main browser-agent server and operates as a standalone Python application that communicates with the browser-agent-server API at http://localhost:8080.
+
+## Framework Structure
+
+The evals directory contains two types of evaluation runners:
+
+1. **native/** - Native evaluation runner using YAML-based test definitions
+   - Custom test suite for browser automation features
+   - LLM-as-a-judge evaluation
+   - Visual verification support
+
+2. **webarena/** - WebArena benchmark runner
+   - 812 standardized benchmark tasks
+   - Deterministic evaluation (string/URL/HTML matching)
+   - Self-hosted environment support
+
+Both runners share the common library in `lib/` which includes judges, API clients, and adapters.
 
 ## Quick Start Commands
 
@@ -37,7 +53,11 @@ cp .env.example .env
 
 ### Running Evaluations
 
+**Native evaluations:**
 ```bash
+# Navigate to native runner directory
+cd native
+
 # Run a specific evaluation by path (relative to data/)
 python3 run.py --path test-simple/math-001.yaml
 
@@ -55,6 +75,21 @@ python3 run.py --category action-agent --limit 5
 
 # Run specific evals by ID within a category
 python3 run.py --category action-agent --eval-ids accordion-001 modal-001
+```
+
+**WebArena evaluations:**
+```bash
+# Navigate to webarena runner directory
+cd webarena
+
+# Run a specific task by ID
+python3 run_webarena.py --task-id 1
+
+# Run with verbose output
+python3 run_webarena.py --task-id 1 --verbose
+
+# Run multiple tasks
+python3 run_webarena.py --all --limit 10
 ```
 
 ### Viewing Results
@@ -125,39 +160,50 @@ ls -lh screenshots/
 
 ```
 evals/
-├── run.py                          # Main evaluation runner (entry point)
 ├── config.yml                      # Global configuration (models, API endpoint)
 ├── .env                            # API keys (gitignored, copy from .env.example)
 ├── .env.example                    # Environment template
 ├── requirements.txt                # Python dependencies
 ├── pyproject.toml                  # Package metadata for uv/pip
+├── CLAUDE.md                       # This file
+├── README.md                       # User documentation
 │
-├── lib/                            # Framework library
+├── lib/                            # Shared framework library
 │   ├── __init__.py                 # Library exports
 │   ├── config_loader.py            # Configuration management
 │   ├── eval_loader.py              # YAML evaluation loader
-│   ├── api_client.py               # HTTP client for eval-server
-│   └── judge.py                    # LLMJudge, VisionJudge, SimpleJudge
+│   ├── api_client.py               # HTTP client for browser-agent-server
+│   ├── judge.py                    # LLMJudge, VisionJudge, SimpleJudge
+│   ├── webarena_adapter.py         # WebArena task adapter
+│   └── webarena_evaluators.py      # WebArena evaluators
 │
-├── data/                           # Evaluation definitions (YAML files)
-│   ├── test-simple/                # Simple sanity tests (math, chat)
-│   ├── action-agent/               # UI interaction tests (clicks, forms)
-│   ├── web-task-agent/             # Multi-step web tasks (flights, shopping)
-│   ├── research-agent/             # Research and information gathering
-│   ├── schema-extractor/           # Data extraction tests
-│   ├── screenshot-verification/    # Visual verification tests
-│   └── end-to-end/                 # Complex multi-step scenarios
+├── native/                         # Native evaluation runner
+│   ├── run.py                      # Main runner (entry point)
+│   ├── test_vision_judge.py        # Vision judge tests
+│   └── data/                       # Native evaluation YAML files
+│       ├── test-simple/            # Simple sanity tests (math, chat)
+│       ├── action-agent/           # UI interaction tests (clicks, forms)
+│       ├── web-task-agent/         # Multi-step web tasks (flights, shopping)
+│       ├── research-agent/         # Research and information gathering
+│       ├── schema-extractor/       # Data extraction tests
+│       ├── screenshot-verification/ # Visual verification tests
+│       └── end-to-end/             # Complex multi-step scenarios
 │
-├── webarena/                       # WebArena benchmark integration (separate runner)
-│   ├── run.py                      # WebArena-specific runner
-│   ├── evaluation_harness/         # WebArena evaluation logic
-│   └── agent/                      # WebArena agent implementations
+├── webarena/                       # WebArena benchmark runner
+│   ├── run_webarena.py             # WebArena runner (entry point)
+│   ├── run_gitlab_tasks.py         # GitLab-specific tasks
+│   ├── run_shopping_tasks.py       # Shopping-specific tasks
+│   ├── login_webarena_sites.py     # Site login utilities
+│   ├── test_webarena_integration.py # Integration tests
+│   ├── data/                       # WebArena-specific data
+│   │   └── login/                  # Login credentials and configs
+│   └── webarena-local/             # Local WebArena environment
+│       ├── docker-compose.yml      # Local services setup
+│       ├── setup-webarena.sh       # Setup script
+│       └── README.md               # WebArena setup guide
 │
 ├── screenshots/                    # Auto-generated screenshots (gitignored)
-├── reports/                        # CSV evaluation reports (gitignored)
-│
-├── test-tracing.sh                 # Script to test tracing configuration
-└── README.md                       # User documentation
+└── reports/                        # CSV evaluation reports (gitignored)
 ```
 
 ## YAML Evaluation Format
@@ -572,9 +618,9 @@ task_id,site,intent,eval_types,status,score,response,execution_time_ms
 
 ### Key Entry Points
 
-- **run.py:523-628** - `main()` function with CLI argument parsing
-- **run.py:287-386** - `_run_single_evaluation()` where the magic happens
-- **run_webarena.py:280-380** - WebArena main() and runner
+- **native/run.py:523-628** - `main()` function with CLI argument parsing
+- **native/run.py:287-386** - `_run_single_evaluation()` where the magic happens
+- **webarena/run_webarena.py:280-380** - WebArena main() and runner
 - **lib/api_client.py:24-153** - `send_request()` for API communication
 - **lib/judge.py:73-143** - LLMJudge implementation
 - **lib/judge.py:222-325** - VisionJudge implementation
@@ -584,16 +630,16 @@ task_id,site,intent,eval_types,status,score,response,execution_time_ms
 
 ### Important Classes
 
-- **EvaluationRunner** (run.py:33-521) - Orchestrates everything
-- **WebArenaRunner** (run_webarena.py:21-277) - WebArena orchestration
-- **Evaluation** (eval_loader.py:10-174) - Represents single eval definition
-- **WebArenaTask** (webarena_adapter.py:19-79) - Represents WebArena task
-- **EvalLoader** (eval_loader.py:176-315) - Loads evals from YAML files
-- **WebArenaTaskLoader** (webarena_adapter.py:172-330) - Loads WebArena tasks
-- **APIClient** (api_client.py:10-382) - Communicates with eval-server
-- **LLMJudge** (judge.py:44-191) - Text-based evaluation
-- **VisionJudge** (judge.py:193-386) - Visual verification
-- **StringEvaluator** (webarena_evaluators.py:38-210) - String matching evaluation
-- **URLEvaluator** (webarena_evaluators.py:213-290) - URL matching evaluation
-- **HTMLContentEvaluator** (webarena_evaluators.py:293-385) - HTML content evaluation
-- **JudgeResult** (judge.py:10-42) - Evaluation result data structure
+- **EvaluationRunner** (native/run.py:33-521) - Orchestrates native evals
+- **WebArenaRunner** (webarena/run_webarena.py:21-277) - Orchestrates WebArena evals
+- **Evaluation** (lib/eval_loader.py:10-174) - Represents single eval definition
+- **WebArenaTask** (lib/webarena_adapter.py:19-79) - Represents WebArena task
+- **EvalLoader** (lib/eval_loader.py:176-315) - Loads evals from YAML files
+- **WebArenaTaskLoader** (lib/webarena_adapter.py:172-330) - Loads WebArena tasks
+- **APIClient** (lib/api_client.py:10-382) - Communicates with browser-agent-server
+- **LLMJudge** (lib/judge.py:44-191) - Text-based evaluation
+- **VisionJudge** (lib/judge.py:193-386) - Visual verification
+- **StringEvaluator** (lib/webarena_evaluators.py:38-210) - String matching evaluation
+- **URLEvaluator** (lib/webarena_evaluators.py:213-290) - URL matching evaluation
+- **HTMLContentEvaluator** (lib/webarena_evaluators.py:293-385) - HTML content evaluation
+- **JudgeResult** (lib/judge.py:10-42) - Evaluation result data structure

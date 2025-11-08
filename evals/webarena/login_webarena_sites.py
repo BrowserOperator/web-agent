@@ -9,38 +9,49 @@ automatically be authenticated.
 No need to capture/inject cookies - the browser maintains the session!
 """
 
+import os
+import sys
 import time
 from typing import Dict, Any
+
+# Add parent directory to path to import from evals/lib
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from lib.api_client import APIClient
 from lib.config_loader import ConfigLoader
 
+# Get WebArena site URLs from environment variables (configurable for different deployments)
+SHOPPING_URL = os.environ.get('SHOPPING', 'http://onestopmarket.com')
+SHOPPING_ADMIN_URL = os.environ.get('SHOPPING_ADMIN', 'http://onestopmarket.com/admin')
+GITLAB_URL = os.environ.get('GITLAB', 'http://gitlab.com')
+REDDIT_URL = os.environ.get('REDDIT', 'http://reddit.com')
+
 # WebArena accounts from browser_env/env_config.py
 ACCOUNTS = {
     'shopping': {
-        'url': 'http://onestopmarket.com/customer/account/login/',
+        'url': f'{SHOPPING_URL}/customer/account/login/',
         'username': 'emma.lopez@gmail.com',
         'password': 'Password.123',
-        'task': 'Navigate to http://onestopmarket.com/customer/account/login/. Fill in the email field with "emma.lopez@gmail.com". Fill in the password field with "Password.123". Click the "Sign In" button. Wait for the page to load.',
+        'task': f'Navigate to {SHOPPING_URL}/customer/account/login/. Fill in the email field with "emma.lopez@gmail.com". Fill in the password field with "Password.123". Click the "Sign In" button. Wait for the page to load.',
     },
     'shopping_admin': {
-        'url': 'http://onestopmarket.com/admin',
+        'url': SHOPPING_ADMIN_URL,
         'username': 'admin',
         'password': 'admin1234',
-        'task': 'Navigate to http://onestopmarket.com/admin. Fill in the username field with "admin". Fill in the password field with "admin1234". Click the "Sign in" button. Wait for the page to load.',
+        'task': f'Navigate to {SHOPPING_ADMIN_URL}. Fill in the username field with "admin". Fill in the password field with "admin1234". Click the "Sign in" button. Wait for the page to load.',
     },
     'gitlab': {
-        'url': 'http://gitlab.com/users/sign_in',
+        'url': f'{GITLAB_URL}/users/sign_in',
         'username': 'byteblaze',
         'password': 'hello1234',
-        'task': 'Navigate to http://gitlab.com/users/sign_in. Fill in the username field with "byteblaze". Fill in the password field with "hello1234". Click the "Sign in" button. Wait for the page to load.',
+        'task': f'Navigate to {GITLAB_URL}/users/sign_in. Fill in the username field with "byteblaze". Fill in the password field with "hello1234". Click the "Sign in" button. Wait for the page to load.',
     },
     # Reddit and Wikipedia not functioning yet
     # 'reddit': {
-    #     'url': 'http://reddit.com/login',
+    #     'url': f'{REDDIT_URL}/login',
     #     'username': 'MarvelsGrantMan136',
     #     'password': 'test1234',
-    #     'task': 'Navigate to http://reddit.com/login. Fill in the username field with "MarvelsGrantMan136". Fill in the password field with "test1234". Click the "Log in" button. Wait for the page to load.',
+    #     'task': f'Navigate to {REDDIT_URL}/login. Fill in the username field with "MarvelsGrantMan136". Fill in the password field with "test1234". Click the "Log in" button. Wait for the page to load.',
     # },
 }
 

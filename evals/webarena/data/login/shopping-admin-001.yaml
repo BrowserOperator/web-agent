@@ -1,0 +1,46 @@
+# Login to WebArena Shopping Admin site
+id: "login-shopping-admin-001"
+name: "Login to Shopping Admin Site"
+description: "Login to WebArena shopping admin panel as admin user"
+enabled: true
+
+target:
+  url: "${SHOPPING_ADMIN:-http://onestopmarket.com/admin}"
+  wait_for: "domcontentloaded"
+  wait_timeout: 10000
+
+tool: "action_agent"
+timeout: 60000
+
+input:
+  objective: |
+    Fill in the username field with "admin".
+    Fill in the password field with "admin1234".
+    Click the "Sign in" button.
+    Wait for the admin dashboard to load.
+
+validation:
+  type: "llm-judge"
+  llm_judge:
+    model: "gpt-4.1-mini"
+    criteria:
+      - "Successfully navigated to the admin login page"
+      - "Filled in the username field with admin"
+      - "Filled in the password field"
+      - "Clicked the Sign in button"
+      - "Login was successful and admin dashboard is visible"
+    visual_verification:
+      enabled: true
+      prompts:
+        - "Verify that the admin dashboard is visible after login"
+        - "Check that no login error messages are displayed"
+        - "Confirm admin menu or panel is accessible"
+
+metadata:
+  tags: ["webarena", "login", "shopping-admin", "authentication", "admin"]
+  priority: "high"
+  site: "shopping_admin"
+  account:
+    username: "admin"
+    # Password stored in task description for reference only
+  owner: "webarena"

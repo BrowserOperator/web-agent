@@ -1,0 +1,47 @@
+# Login to WebArena Reddit site
+id: "login-reddit-001"
+name: "Login to Reddit (Clone)"
+description: "Login to WebArena Reddit clone as MarvelsGrantMan136 user"
+enabled: false  # Currently not functioning, disabled by default
+
+target:
+  url: "${REDDIT:-http://reddit.com}/login"
+  wait_for: "domcontentloaded"
+  wait_timeout: 10000
+
+tool: "action_agent"
+timeout: 60000
+
+input:
+  objective: |
+    Fill in the username field with "MarvelsGrantMan136".
+    Fill in the password field with "test1234".
+    Click the "Log in" button.
+    Wait for the Reddit homepage to load.
+
+validation:
+  type: "llm-judge"
+  llm_judge:
+    model: "gpt-4.1-mini"
+    criteria:
+      - "Successfully navigated to the Reddit login page"
+      - "Filled in the username field with MarvelsGrantMan136"
+      - "Filled in the password field"
+      - "Clicked the Log in button"
+      - "Login was successful (user menu visible in header)"
+    visual_verification:
+      enabled: true
+      prompts:
+        - "Verify that the user is logged into Reddit (username visible in header)"
+        - "Check that no login error messages are displayed"
+        - "Confirm user dropdown menu is accessible"
+
+metadata:
+  tags: ["webarena", "login", "reddit", "authentication", "disabled"]
+  priority: "medium"
+  site: "reddit"
+  account:
+    username: "MarvelsGrantMan136"
+    # Password stored in task description for reference only
+  owner: "webarena"
+  notes: "Reddit login currently not functioning in WebArena environment"
