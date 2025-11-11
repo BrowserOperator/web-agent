@@ -201,8 +201,6 @@ COPY --from=xorg-deps /usr/local/lib/xorg/modules/drivers/dummy_drv.so /usr/lib/
 COPY --from=xorg-deps /usr/local/lib/xorg/modules/input/neko_drv.so /usr/lib/xorg/modules/input/neko_drv.so
 
 COPY submodules/kernel-images/images/chromium-headful/image-chromium/ /
-COPY submodules/kernel-images/images/chromium-headful/start-chromium.sh /images/chromium-headful/start-chromium.sh
-RUN chmod +x /images/chromium-headful/start-chromium.sh
 COPY submodules/kernel-images/images/chromium-headful/wrapper.sh /wrapper.sh
 COPY submodules/kernel-images/images/chromium-headful/supervisord.conf /etc/supervisor/supervisord.conf
 COPY submodules/kernel-images/images/chromium-headful/supervisor/services/ /etc/supervisor/conf.d/services/
