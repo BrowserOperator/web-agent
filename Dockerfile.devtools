@@ -68,7 +68,7 @@ FROM devtools-base AS devtools-local
 
 # Copy local changes from browser-operator-core submodule FIRST
 # This happens before checking out upstream, so we copy over the upstream code
-COPY browser-operator-core/front_end /workspace/devtools/devtools-frontend/front_end
+COPY submodules/browser-operator-core/front_end /workspace/devtools/devtools-frontend/front_end
 COPY browser-agent-server /workspace/devtools/devtools-frontend/browser-agent-server
 
 WORKDIR /workspace/devtools/devtools-frontend

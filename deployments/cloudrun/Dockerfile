@@ -70,20 +70,20 @@ ARG TARGETOS
 ARG TARGETARCH
 ENV CGO_ENABLED=0
 
-COPY kernel-images/server/go.mod ./
-COPY kernel-images/server/go.sum ./
+COPY submodules/kernel-images/server/go.mod ./
+COPY submodules/kernel-images/server/go.sum ./
 RUN go mod download
 
-COPY kernel-images/server/ .
+COPY submodules/kernel-images/server/ .
 RUN GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
     go build -ldflags="-s -w" -o /out/kernel-images-api ./cmd/api
 
 # WebRTC client build
 FROM node:22-bullseye-slim AS client
 WORKDIR /src
-COPY kernel-images/images/chromium-headful/client/package*.json ./
+COPY submodules/kernel-images/images/chromium-headful/client/package*.json ./
 RUN npm install
-COPY kernel-images/images/chromium-headful/client/ .
+COPY submodules/kernel-images/images/chromium-headful/client/ .
 RUN npm run build
 
 # Xorg dependencies
@@ -95,7 +95,7 @@ RUN set -eux; \
     apt-get install -y \
     git gcc pkgconf autoconf automake libtool make xorg-dev xutils-dev \
     && rm -rf /var/lib/apt/lists/*;
-COPY kernel-images/images/chromium-headful/xorg-deps/ /xorg/
+COPY submodules/kernel-images/images/chromium-headful/xorg-deps/ /xorg/
 # build xf86-video-dummy v0.3.8 with RandR support
 RUN set -eux; \
     cd xf86-video-dummy/v0.3.8; \
@@ -248,19 +248,19 @@ ENV WITHDOCKER=true
 ENV PORT=8080
 
 # Copy configurations
-COPY kernel-images/images/chromium-headful/xorg.conf /etc/neko/xorg.conf
-COPY kernel-images/images/chromium-headful/neko.yaml /etc/neko/neko.yaml
+COPY submodules/kernel-images/images/chromium-headful/xorg.conf /etc/neko/xorg.conf
+COPY submodules/kernel-images/images/chromium-headful/neko.yaml /etc/neko/neko.yaml
 COPY --from=neko /usr/bin/neko /usr/bin/neko
 COPY --from=client /src/dist/ /var/www
 COPY --from=xorg-deps /usr/local/lib/xorg/modules/drivers/dummy_drv.so /usr/lib/xorg/modules/drivers/dummy_drv.so
 COPY --from=xorg-deps /usr/local/lib/xorg/modules/input/neko_drv.so /usr/lib/xorg/modules/input/neko_drv.so
 
-COPY kernel-images/images/chromium-headful/image-chromium/ /
-COPY kernel-images/images/chromium-headful/start-chromium.sh /images/chromium-headful/start-chromium.sh
+COPY submodules/kernel-images/images/chromium-headful/image-chromium/ /
+COPY submodules/kernel-images/images/chromium-headful/start-chromium.sh /images/chromium-headful/start-chromium.sh
 RUN chmod +x /images/chromium-headful/start-chromium.sh
-COPY kernel-images/images/chromium-headful/supervisord.conf /etc/supervisor/supervisord.conf
+COPY submodules/kernel-images/images/chromium-headful/supervisord.conf /etc/supervisor/supervisord.conf
 COPY deployment/cloudrun/supervisord-cloudrun.conf /etc/supervisor/supervisord-cloudrun.conf
-COPY kernel-images/images/chromium-headful/supervisor/services/ /etc/supervisor/conf.d/services/
+COPY submodules/kernel-images/images/chromium-headful/supervisor/services/ /etc/supervisor/conf.d/services/
 
 # Copy the kernel-images API binary
 COPY --from=server-builder /out/kernel-images-api /usr/local/bin/kernel-images-api

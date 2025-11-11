@@ -195,6 +195,9 @@ evals/
 │   ├── run_shopping_tasks.py       # Shopping-specific tasks
 │   ├── login_webarena_sites.py     # Site login utilities
 │   ├── test_webarena_integration.py # Integration tests
+│   ├── config_files/               # WebArena task configurations
+│   │   ├── examples/               # Example tasks (1.json, 2.json, etc.)
+│   │   └── test.raw.json           # Full benchmark (812 tasks)
 │   ├── data/                       # WebArena-specific data
 │   │   └── login/                  # Login credentials and configs
 │   └── webarena-local/             # Local WebArena environment

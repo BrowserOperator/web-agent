@@ -247,18 +247,36 @@ class WebArenaTaskLoader:
 
         Args:
             config_dir: Path to WebArena config_files directory.
-                       Defaults to submodules/webarena/config_files/
+                       If None, tries multiple default locations in order:
+                       1. evals/webarena/config_files/ (new structure)
+                       2. submodules/webarena/config_files/ (legacy submodule)
         """
         if config_dir is None:
-            # Go from evals/lib/ to project root, then to submodules/webarena/config_files
+            # Try multiple locations in order of preference
             project_root = Path(__file__).parent.parent.parent
-            webarena_dir = project_root / 'submodules' / 'webarena'
-            config_dir = webarena_dir / 'config_files'
+
+            # First try: new in-repo location at evals/webarena/config_files/
+            new_location = project_root / 'evals' / 'webarena' / 'config_files'
+            if new_location.exists():
+                config_dir = new_location
+            else:
+                # Fallback: legacy submodule location
+                submodule_location = project_root / 'submodules' / 'webarena' / 'config_files'
+                if submodule_location.exists():
+                    config_dir = submodule_location
+                else:
+                    # If neither exists, default to new location (will raise error below)
+                    config_dir = new_location
 
         self.config_dir = Path(config_dir)
 
         if not self.config_dir.exists():
-            raise FileNotFoundError(f"Config directory not found: {self.config_dir}")
+            raise FileNotFoundError(
+                f"Config directory not found: {self.config_dir}\n"
+                f"WebArena task configs should be at:\n"
+                f"  - evals/webarena/config_files/ (preferred), or\n"
+                f"  - submodules/webarena/config_files/ (legacy)"
+            )
 
     def load_task(self, task_id: int) -> WebArenaTask:
         """

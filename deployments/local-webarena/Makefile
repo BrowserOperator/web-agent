@@ -18,13 +18,14 @@ help: ## Show this help message
 
 init: ## Initialize submodules (run this first)
 	@echo "📦 Initializing submodules..."
-	cd ../../ && git submodule update --init --depth 1 kernel-images
-	cd ../../ && git submodule update --init --depth 1 browser-operator-core
-	@echo "✅ Submodules initialized"
+	cd ../../ && git submodule update --init --depth 1 submodules/kernel-images
+	cd ../../ && git submodule update --init --depth 1 submodules/browser-operator-core
+	cd ../../ && git submodule update --init --depth 1 submodules/webarena
+	@echo "✅ Submodules initialized (including WebArena for evals)"
 
 init-devtools: ## Initialize browser-operator-core submodule only
 	@echo "📦 Initializing browser-operator-core submodule..."
-	cd ../../ && git submodule update --init --depth 1 browser-operator-core
+	cd ../../ && git submodule update --init --depth 1 submodules/browser-operator-core
 	@echo "✅ browser-operator-core submodule initialized"
 
 build-devtools-base: init-devtools ## Build DevTools base image (slow, rarely needed)

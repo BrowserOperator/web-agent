@@ -708,6 +708,11 @@ curl -X POST http://localhost:8080/page/screenshot \
 
 3. **Renamed eval-server** - Now called `browser-agent-server/` to better reflect its purpose
 
+4. **Moved WebArena config files** - Task configurations moved to in-repo location:
+   - New location: `evals/webarena/config_files/` (preferred)
+   - Legacy location: `submodules/webarena/config_files/` (fallback)
+   - `WebArenaTaskLoader` now tries new location first
+
 ### Technical Fixes
 1. **Fixed docker-compose.yml** - Added missing port mappings (8000, 8001, 8081, 8082)
 2. **Fixed tmpfs mounts** - Added `/tmp` to prevent X11 lock persistence
