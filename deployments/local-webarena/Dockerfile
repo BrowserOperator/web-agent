@@ -34,20 +34,20 @@ ARG TARGETOS
 ARG TARGETARCH
 ENV CGO_ENABLED=0
 
-COPY kernel-images/server/go.mod ./
-COPY kernel-images/server/go.sum ./
+COPY submodules/kernel-images/server/go.mod ./
+COPY submodules/kernel-images/server/go.sum ./
 RUN go mod download
 
-COPY kernel-images/server/ .
+COPY submodules/kernel-images/server/ .
 RUN GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-arm64} \
     go build -ldflags="-s -w" -o /out/kernel-images-api ./cmd/api
 
 # webrtc client
 FROM --platform=linux/arm64 node:22-bullseye-slim AS client
 WORKDIR /src
-COPY kernel-images/images/chromium-headful/client/package*.json ./
+COPY submodules/kernel-images/images/chromium-headful/client/package*.json ./
 RUN npm install
-COPY kernel-images/images/chromium-headful/client/ .
+COPY submodules/kernel-images/images/chromium-headful/client/ .
 RUN npm run build
 
 # xorg dependencies
@@ -59,7 +59,7 @@ RUN set -eux; \
     apt-get install -y \
     git gcc pkgconf autoconf automake libtool make xorg-dev xutils-dev \
     && rm -rf /var/lib/apt/lists/*;
-COPY kernel-images/images/chromium-headful/xorg-deps/ /xorg/
+COPY submodules/kernel-images/images/chromium-headful/xorg-deps/ /xorg/
 # build xf86-video-dummy v0.3.8 with RandR support
 RUN set -eux; \
     cd xf86-video-dummy/v0.3.8; \
@@ -193,22 +193,20 @@ ENV WIDTH=1024
 ENV WITHDOCKER=true
 
 # Copy kernel-images configuration and binaries
-COPY kernel-images/images/chromium-headful/xorg.conf /etc/neko/xorg.conf
-COPY kernel-images/images/chromium-headful/neko.yaml /etc/neko/neko.yaml
+COPY submodules/kernel-images/images/chromium-headful/xorg.conf /etc/neko/xorg.conf
+COPY submodules/kernel-images/images/chromium-headful/neko.yaml /etc/neko/neko.yaml
 COPY --from=neko /usr/bin/neko /usr/bin/neko
 COPY --from=client /src/dist/ /var/www
 COPY --from=xorg-deps /usr/local/lib/xorg/modules/drivers/dummy_drv.so /usr/lib/xorg/modules/drivers/dummy_drv.so
 COPY --from=xorg-deps /usr/local/lib/xorg/modules/input/neko_drv.so /usr/lib/xorg/modules/input/neko_drv.so
 
-COPY kernel-images/images/chromium-headful/image-chromium/ /
-COPY kernel-images/images/chromium-headful/start-chromium.sh /images/chromium-headful/start-chromium.sh
-RUN chmod +x /images/chromium-headful/start-chromium.sh
-COPY kernel-images/images/chromium-headful/wrapper.sh /wrapper.sh
-COPY kernel-images/images/chromium-headful/supervisord.conf /etc/supervisor/supervisord.conf
-COPY kernel-images/images/chromium-headful/supervisor/services/ /etc/supervisor/conf.d/services/
+COPY submodules/kernel-images/images/chromium-headful/image-chromium/ /
+COPY submodules/kernel-images/images/chromium-headful/wrapper.sh /wrapper.sh
+COPY submodules/kernel-images/images/chromium-headful/supervisord.conf /etc/supervisor/supervisord.conf
+COPY submodules/kernel-images/images/chromium-headful/supervisor/services/ /etc/supervisor/conf.d/services/
 
 # Override chromium.conf with local version that includes auto-open-devtools
-COPY supervisor/services/chromium.conf /etc/supervisor/conf.d/services/chromium.conf
+COPY deployments/commons/supervisor/services/chromium.conf /etc/supervisor/conf.d/services/chromium.conf
 
 # copy the kernel-images API binary built in the builder stage
 COPY --from=server-builder /out/kernel-images-api /usr/local/bin/kernel-images-api
@@ -221,18 +219,18 @@ COPY --from=server-builder /out/kernel-images-api /usr/local/bin/kernel-images-a
 COPY --from=devtools-source /usr/share/nginx/html /usr/share/nginx/devtools
 
 # Create DevTools nginx configuration
-COPY nginx/nginx-devtools.conf /etc/nginx/sites-available/devtools
+COPY deployments/commons/nginx/nginx-devtools.conf /etc/nginx/sites-available/devtools
 RUN ln -s /etc/nginx/sites-available/devtools /etc/nginx/sites-enabled/devtools && \
     rm /etc/nginx/sites-enabled/default
 
 # Add DevTools nginx service to supervisor
-COPY supervisor/services/nginx-devtools.conf /etc/supervisor/conf.d/services/nginx-devtools.conf
+COPY deployments/commons/supervisor/services/nginx-devtools.conf /etc/supervisor/conf.d/services/nginx-devtools.conf
 
 # Add eval server service to supervisor
-COPY supervisor/services/browser-agent-server.conf /etc/supervisor/conf.d/services/browser-agent-server.conf
+COPY deployments/commons/supervisor/services/browser-agent-server.conf /etc/supervisor/conf.d/services/browser-agent-server.conf
 
 # Add neko service to supervisor (configured for port 8000)
-COPY supervisor/services/neko.conf /etc/supervisor/conf.d/services/neko.conf
+COPY deployments/commons/supervisor/services/neko.conf /etc/supervisor/conf.d/services/neko.conf
 
 # Create nginx temp directories and set permissions
 RUN mkdir -p /var/lib/nginx/body \
@@ -281,8 +279,12 @@ VOLUME ["/data"]
 # ============================================================================
 
 # Copy container initialization script that cleans up lock files
-COPY scripts/init-container.sh /usr/local/bin/init-container.sh
+COPY deployments/local-webarena/scripts/init-container.sh /usr/local/bin/init-container.sh
 RUN chmod +x /usr/local/bin/init-container.sh
+
+# Copy patched start-chromium.sh that properly quotes CHROMIUM_FLAGS
+COPY deployments/local-webarena/scripts/start-chromium.sh /images/chromium-headful/start-chromium.sh
+RUN chmod +x /images/chromium-headful/start-chromium.sh
 
 # Create a wrapper entrypoint that runs init script before main wrapper
 RUN echo '#!/bin/bash\n\

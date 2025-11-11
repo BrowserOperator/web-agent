@@ -1,12 +1,12 @@
 # Evaluation Framework Configuration
 # This configuration is shared across all evaluation runner scripts
-# Configuration for OpenAI models
 
 # API endpoint for the evaluation server
 api_endpoint: "http://localhost:8080"
 
 # Model configurations for running evaluations
 # These models are sent to the agent for processing requests
+# See config.example.*.yml files for other provider/model configurations
 
 main_model:
   provider: "openai"

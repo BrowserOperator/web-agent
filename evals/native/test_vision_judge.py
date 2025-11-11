@@ -4,6 +4,12 @@ Test script for VisionJudge functionality.
 """
 
 import os
+import sys
+from pathlib import Path
+
+# Add parent directory to path to import from evals/lib
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from lib.judge import VisionJudge, JudgeResult
 from lib.api_client import APIClient
 

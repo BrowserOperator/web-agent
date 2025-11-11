@@ -1,0 +1,45 @@
+# Login to WebArena Shopping site
+id: "login-shopping-001"
+name: "Login to Shopping Site (OneStopMarket)"
+description: "Login to WebArena shopping site as emma.lopez@gmail.com"
+enabled: true
+
+target:
+  url: "${SHOPPING:-http://onestopmarket.com}/customer/account/login/"
+  wait_for: "domcontentloaded"
+  wait_timeout: 10000
+
+tool: "action_agent"
+timeout: 60000
+
+input:
+  objective: |
+    Fill in the email field with "emma.lopez@gmail.com".
+    Fill in the password field with "Password.123".
+    Click the "Sign In" button.
+    Wait for the page to load and verify successful login.
+
+validation:
+  type: "llm-judge"
+  llm_judge:
+    model: "gpt-4.1-mini"
+    criteria:
+      - "Successfully navigated to the login page"
+      - "Filled in the email field with emma.lopez@gmail.com"
+      - "Filled in the password field"
+      - "Clicked the Sign In button"
+      - "Login was successful (no error messages visible)"
+    visual_verification:
+      enabled: true
+      prompts:
+        - "Verify that the user is logged in (user menu or account name visible)"
+        - "Check that no login error messages are displayed"
+
+metadata:
+  tags: ["webarena", "login", "shopping", "authentication"]
+  priority: "high"
+  site: "shopping"
+  account:
+    username: "emma.lopez@gmail.com"
+    # Password stored in task description for reference only
+  owner: "webarena"

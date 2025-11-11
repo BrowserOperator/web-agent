@@ -23,5 +23,15 @@ if [ -d "/tmp" ]; then
   rm -f /tmp/.X*-lock 2>/dev/null || true
 fi
 
+# Add route to 172.16.55.0/24 network via Docker host gateway
+# This allows the container to reach hosts on the 172.16.55.x network
+if command -v ip >/dev/null 2>&1; then
+  GATEWAY=$(ip route | grep default | awk '{print $3}')
+  if [ -n "$GATEWAY" ]; then
+    echo "🌐 [init] Adding route to 172.16.55.0/24 via $GATEWAY..."
+    ip route add 172.16.55.0/24 via $GATEWAY 2>/dev/null || echo "⚠️  [init] Route already exists or failed to add"
+  fi
+fi
+
 echo "✅ [init] Container initialization complete"
 exit 0

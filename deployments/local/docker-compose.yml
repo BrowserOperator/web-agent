@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  kernel-browser:
+    image: "kernel-browser:extended"
+    container_name: "kernel-browser-extended"
+    privileged: true
+    shm_size: 2gb
+    deploy:
+      resources:
+        limits:
+          memory: 8192M
+    ports:
+      # Chrome DevTools Protocol (matches kernel-images default)
+      - "9222:9222"
+      # Recording API (matches kernel-images default)
+      - "444:10001"
+      # WebRTC client interface
+      - "8000:8000"
+      # Enhanced DevTools UI
+      - "8001:8001"
+      # Browser Agent Server HTTP API
+      - "8080:8080"
+      # WebRTC Neko interface
+      - "8081:8081"
+      # Browser Agent Server WebSocket
+      - "8082:8082"
+      # WebRTC UDP port range for local development
+      - "57000-57100:57000-57100/udp"
+    extra_hosts:
+      # Route these domains through host gateway to reach 172.16.55.59
+      - "host.docker.internal:host-gateway"
+    environment:
+      # Display settings
+      - DISPLAY_NUM=1
+      - HEIGHT=768
+      - WIDTH=1024
+      # WebRTC settings
+      - ENABLE_WEBRTC=true
+      - NEKO_WEBRTC_EPR=57000-57100
+      - NEKO_WEBRTC_NAT1TO1=127.0.0.1
+      # Run as kernel user (not root)
+      - RUN_AS_ROOT=false
+      # Chromium flags with persistent data directory and custom DevTools frontend
+      # Note: --host-resolver-rules is in mounted /chromium/flags file to avoid shell word splitting issues
+      - CHROMIUM_FLAGS=--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/
+    volumes:
+      # Persist recordings in local directory
+      - "./@mount/recordings:/recordings"
+      # Mount Chromium flags file (will be created by run script)
+      - "./@mount/chromium-flags/flags:/chromium/flags:ro"
+      # Persist Chromium data across container restarts (set CHROMIUM_DATA_HOST env var to customize path)
+      - "${CHROMIUM_DATA_HOST:-./@mount/chromium-data}:/data"
+    tmpfs:
+      - /dev/shm:size=2g
+      - /tmp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s  # Allow more time for startup
+
+volumes:
+  recordings:
+    driver: local

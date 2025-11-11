@@ -1,0 +1,147 @@
+version: '3.8'
+
+# WebArena Local Environment
+# Simplified Docker Compose setup for running WebArena websites locally
+#
+# IMPORTANT: This requires pre-downloading Docker images from WebArena
+# See README.md for setup instructions
+#
+# Services:
+# - shopping: OneStopShop e-commerce site (port 7770)
+# - shopping_admin: Magento CMS admin (port 7780)
+# - forum: Reddit clone / Postmill forum (port 9999)
+# - gitlab: GitLab instance (port 8023)
+# - kiwix: Wikipedia (Kiwix) (port 8888)
+# - openstreetmap: OSM map service (port 3000)
+# - homepage: WebArena homepage (port 4399)
+
+services:
+  # OneStopShop E-commerce Website
+  shopping:
+    image: shopping_final_0712
+    container_name: webarena-shopping
+    ports:
+      - "7770:80"
+    restart: unless-stopped
+    networks:
+      - webarena
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Shopping Admin / Magento CMS
+  shopping_admin:
+    image: shopping_admin_final_0719
+    container_name: webarena-shopping-admin
+    ports:
+      - "7780:80"
+    restart: unless-stopped
+    networks:
+      - webarena
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Reddit Clone / Postmill Forum
+  forum:
+    image: postmill-populated-exposed-withimg
+    container_name: webarena-forum
+    ports:
+      - "9999:80"
+    restart: unless-stopped
+    networks:
+      - webarena
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # GitLab
+  gitlab:
+    image: gitlab-populated-final-port8023
+    container_name: webarena-gitlab
+    ports:
+      - "8023:8023"
+    restart: unless-stopped
+    networks:
+      - webarena
+    shm_size: '256m'
+    command: /opt/gitlab/embedded/bin/runsvdir-start
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8023"]
+      interval: 60s
+      timeout: 20s
+      retries: 5
+      start_period: 180s
+
+  # Wikipedia (Kiwix)
+  kiwix:
+    image: kiwix33
+    container_name: webarena-kiwix
+    ports:
+      - "8888:80"
+    restart: unless-stopped
+    networks:
+      - webarena
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # OpenStreetMap
+  # Note: This may need additional setup for tile server
+  # See webarena/environment_docker/README.md for full instructions
+  openstreetmap:
+    image: openstreetmap-website
+    container_name: webarena-map
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - webarena
+    environment:
+      - MAP_BACKEND_IP=localhost
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # WebArena Homepage
+  homepage:
+    build: ../webarena/environment_docker/webarena-homepage
+    container_name: webarena-homepage
+    ports:
+      - "4399:80"
+    restart: unless-stopped
+    networks:
+      - webarena
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  webarena:
+    name: webarena-network
+    driver: bridge
+
+# Volumes for persistence (optional)
+# volumes:
+#   shopping_data:
+#   shopping_admin_data:
+#   gitlab_data:
+#   forum_data:

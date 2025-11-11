@@ -31,7 +31,7 @@ class ConfigLoader:
             script_dir = Path(__file__).parent.parent
             env_file = script_dir / ".env"
             if env_file.exists():
-                load_dotenv(env_file)
+                load_dotenv(env_file, override=True)
 
         if config_path is None:
             # Default to config.yml in evals directory
