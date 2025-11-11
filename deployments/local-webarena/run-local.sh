@@ -11,7 +11,7 @@ PROJECT_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 cd "$PROJECT_ROOT"
 
 # Check if kernel-images submodule exists
-if [ ! -d "kernel-images" ] || [ ! -f "kernel-images/images/chromium-headful/run-docker.sh" ]; then
+if [ ! -d "submodules/kernel-images" ] || [ ! -f "submodules/kernel-images/images/chromium-headful/run-docker.sh" ]; then
     echo "❌ Error: kernel-images submodule not found or incomplete"
     echo "   Run: git submodule update --init --recursive"
     exit 1
@@ -21,7 +21,7 @@ fi
 mkdir -p "$PROJECT_ROOT/recordings"
 
 # Change to kernel-images directory
-cd kernel-images/images/chromium-headful
+cd submodules/kernel-images/images/chromium-headful
 
 # Make run script executable
 chmod +x run-docker.sh
