@@ -162,6 +162,10 @@ class Evaluation:
         """
         Get JavaScript script to execute for validation.
 
+        Supports both inline scripts and external .js files.
+        If script value ends with .js, it's treated as a file reference
+        relative to the YAML file location.
+
         Returns:
             JavaScript code string
         """
@@ -169,7 +173,26 @@ class Evaluation:
         if not js_eval_config:
             return ""
 
-        return js_eval_config.get('script', '')
+        script_value = js_eval_config.get('script', '')
+        if not script_value:
+            return ""
+
+        # Check if it's a file reference (ends with .js)
+        if script_value.endswith('.js'):
+            # Load from external file (relative to YAML file)
+            script_path = self.file_path.parent / script_value
+
+            if not script_path.exists():
+                raise FileNotFoundError(
+                    f"Validation script not found: {script_path}\n"
+                    f"Referenced from: {self.file_path}"
+                )
+
+            with open(script_path, 'r') as f:
+                return f.read()
+
+        # Otherwise, treat as inline code (backward compatible)
+        return script_value
 
     def get_js_eval_expected(self) -> Any:
         """

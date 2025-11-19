@@ -30,8 +30,9 @@ from difflib import unified_diff
 class SnapshotBasedEvalBuilder:
     """Build eval files using before/after snapshots."""
 
-    def __init__(self, file_path: Optional[str] = None):
+    def __init__(self, file_path: Optional[str] = None, workdir: Optional[str] = None):
         self.file_path = file_path
+        self.workdir = workdir  # Working directory for snapshots and validation scripts
         self.eval_data: Dict[str, Any] = {}
         self.client_id: Optional[str] = None
         self.tab_id: Optional[str] = None
@@ -86,16 +87,12 @@ class SnapshotBasedEvalBuilder:
         """Step 1: Load existing file or create new."""
         print("📋 Step 1: Load Eval File\n")
 
-        if self.file_path and os.path.exists(self.file_path):
+        if os.path.exists(self.file_path):
             print(f"📖 Loading: {self.file_path}")
             with open(self.file_path, 'r') as f:
                 self.eval_data = yaml.safe_load(f)
             print("✅ Loaded")
         else:
-            if not self.file_path:
-                path = input("Enter file path: ").strip()
-                self.file_path = path or "evals/native/data/builder/new-test.yaml"
-
             print(f"📝 Creating new: {self.file_path}")
             self.eval_data = self._empty_template()
             print("✅ Ready")
@@ -314,7 +311,7 @@ class SnapshotBasedEvalBuilder:
         print(f"📊 Found {len(added_lines)} additions, {len(removed_lines)} removals")
 
         # Save snapshots to files for Claude to analyze
-        snapshot_dir = "/tmp/eval_builder_snapshots"
+        snapshot_dir = self.workdir
         os.makedirs(snapshot_dir, exist_ok=True)
 
         before_file = f"{snapshot_dir}/before.html"
@@ -450,11 +447,11 @@ curl -X POST http://localhost:8080/page/execute \\
 
 ## Workflow
 
-1. Write validation code to: {snapshot_dir}/validation.js
+1. Write validation code to: {snapshot_dir}/verify.js
 2. Test it on the AFTER tab (should return TRUE)
 3. Test it on the BEFORE tab (should return FALSE)
 4. If you get errors or wrong results:
-   - Read the existing {snapshot_dir}/validation.js
+   - Read the existing {snapshot_dir}/verify.js
    - Identify the issue from the API error response
    - Edit and fix the file
    - Save the improved version
@@ -466,7 +463,7 @@ curl -X POST http://localhost:8080/page/execute \\
 
 ## Save Your Response
 When you generate WORKING validation JavaScript (tested via API), save it to:
-{snapshot_dir}/validation.js
+{snapshot_dir}/verify.js
 
 The orchestrator will automatically pick it up and test it again for confirmation.
 
@@ -498,7 +495,7 @@ learn from previous attempts, and improve it iteratively.
             print(f"      - Test on AFTER tab ({self.tab_id}) should return TRUE")
         print(f"   4. Fix any errors (especially 'Illegal return statement')")
         print(f"   5. Iterate until both tests pass correctly")
-        print(f"   6. Save working code to: {snapshot_dir}/validation.js")
+        print(f"   6. Save working code to: {snapshot_dir}/verify.js")
         print()
         print("⚠️  CRITICAL: NO return statements! End with boolean expression.")
         if self.tab_id_before:
@@ -508,10 +505,10 @@ learn from previous attempts, and improve it iteratively.
         print()
 
         # Wait for Claude to create the validation file
-        validation_file = f"{snapshot_dir}/validation.js"
+        validation_file = f"{snapshot_dir}/verify.js"
 
         print("Options:")
-        print("1. Wait for Claude Code to create validation.js (recommended)")
+        print("1. Wait for Claude Code to create verify.js (recommended)")
         print("2. Enter validation JavaScript manually")
         print()
 
@@ -582,10 +579,24 @@ learn from previous attempts, and improve it iteratively.
                 print(f"\n🧪 Testing validation... (attempt {retry_count + 1}/{max_retries + 1})")
 
                 if await self._test_validation(js_code):
+                    # Save validation JavaScript to external file
+                    eval_dir = os.path.dirname(self.file_path)
+                    verify_js_path = os.path.join(eval_dir, 'verify.js')
+
+                    # Ensure eval directory exists
+                    os.makedirs(eval_dir, exist_ok=True)
+
+                    # Write JavaScript to external file
+                    with open(verify_js_path, 'w') as f:
+                        f.write(js_code)
+
+                    print(f"💾 Saved validation script to: {verify_js_path}")
+
+                    # Reference external file in YAML
                     if 'validation' not in self.eval_data:
                         self.eval_data['validation'] = {'type': 'js-eval', 'js-eval': {}}
 
-                    self.eval_data['validation']['js-eval']['script'] = js_code
+                    self.eval_data['validation']['js-eval']['script'] = 'verify.js'
                     self.eval_data['validation']['js-eval']['expected_result'] = True
                     self.eval_data['validation']['js-eval']['timeout'] = 5000
                     print("✅ Validation saved")
@@ -595,7 +606,7 @@ learn from previous attempts, and improve it iteratively.
                     if retry_count < max_retries:
                         print(f"\n⚠️  Validation test failed. You have {max_retries - retry_count} retries remaining.")
                         print("\nOptions:")
-                        print("1. Let Claude Code fix it (updates validation.js)")
+                        print("1. Let Claude Code fix it (updates verify.js)")
                         print("2. Enter new validation manually")
                         print("3. Save anyway (not recommended)")
                         print("4. Skip validation for now")
@@ -683,9 +694,23 @@ learn from previous attempts, and improve it iteratively.
 
                         elif retry_choice == '3':
                             # Save anyway
+                            # Save validation JavaScript to external file
+                            eval_dir = os.path.dirname(self.file_path)
+                            verify_js_path = os.path.join(eval_dir, 'verify.js')
+
+                            # Ensure eval directory exists
+                            os.makedirs(eval_dir, exist_ok=True)
+
+                            # Write JavaScript to external file
+                            with open(verify_js_path, 'w') as f:
+                                f.write(js_code)
+
+                            print(f"💾 Saved validation script to: {verify_js_path}")
+
+                            # Reference external file in YAML
                             if 'validation' not in self.eval_data:
                                 self.eval_data['validation'] = {'type': 'js-eval', 'js-eval': {}}
-                            self.eval_data['validation']['js-eval']['script'] = js_code
+                            self.eval_data['validation']['js-eval']['script'] = 'verify.js'
                             self.eval_data['validation']['js-eval']['expected_result'] = True
                             self.eval_data['validation']['js-eval']['timeout'] = 5000
                             print("⚠️  Validation saved (with errors - use caution!)")
@@ -699,9 +724,23 @@ learn from previous attempts, and improve it iteratively.
                         print(f"\n❌ Maximum retries ({max_retries}) reached.")
                         save_anyway = input("Save validation anyway? (y/n): ").strip().lower()
                         if save_anyway == 'y':
+                            # Save validation JavaScript to external file
+                            eval_dir = os.path.dirname(self.file_path)
+                            verify_js_path = os.path.join(eval_dir, 'verify.js')
+
+                            # Ensure eval directory exists
+                            os.makedirs(eval_dir, exist_ok=True)
+
+                            # Write JavaScript to external file
+                            with open(verify_js_path, 'w') as f:
+                                f.write(js_code)
+
+                            print(f"💾 Saved validation script to: {verify_js_path}")
+
+                            # Reference external file in YAML
                             if 'validation' not in self.eval_data:
                                 self.eval_data['validation'] = {'type': 'js-eval', 'js-eval': {}}
-                            self.eval_data['validation']['js-eval']['script'] = js_code
+                            self.eval_data['validation']['js-eval']['script'] = 'verify.js'
                             self.eval_data['validation']['js-eval']['expected_result'] = True
                             self.eval_data['validation']['js-eval']['timeout'] = 5000
                             print("⚠️  Validation saved (with errors)")
@@ -830,10 +869,31 @@ return true;"""
 async def main():
     """Entry point."""
     parser = argparse.ArgumentParser(description="Snapshot-based eval builder")
-    parser.add_argument('--file', '-f', help='Eval file path')
+    parser.add_argument('--file', '-f', help='Eval file path (default: <workdir>/task.yaml)')
+    parser.add_argument('--workdir', '-w', required=True, help='Working directory for snapshots and validation scripts')
     args = parser.parse_args()
 
-    builder = SnapshotBasedEvalBuilder(file_path=args.file)
+    # Normalize workdir path (strip 'evals/' prefix if present and we're already in evals/)
+    workdir = args.workdir
+    if workdir.startswith('evals/') and os.path.basename(os.getcwd()) == 'evals':
+        workdir = workdir[6:]  # Remove 'evals/' prefix
+        print(f"ℹ️  Normalized workdir: {workdir}")
+
+    # Strip trailing slashes to avoid double slashes in paths
+    workdir = workdir.rstrip('/')
+
+    # Auto-detect task.yaml in workdir if no file specified
+    file_path = args.file
+    if not file_path:
+        task_yaml_path = os.path.join(workdir, 'task.yaml')
+        if os.path.exists(task_yaml_path):
+            file_path = task_yaml_path
+            print(f"📋 Found existing task.yaml: {file_path}")
+        else:
+            file_path = task_yaml_path  # Will be created as new file
+            print(f"📝 Will create new task.yaml: {file_path}")
+
+    builder = SnapshotBasedEvalBuilder(file_path=file_path, workdir=workdir)
     await builder.run()
 
 
