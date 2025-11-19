@@ -1,0 +1,36 @@
+# Basic search interaction test
+id: "action-agent-click-001"
+name: "Search with Text Entry and Click"
+description: "Test entering text in search field and clicking search button"
+enabled: true
+
+target:
+  url: "https://www.google.com"
+  wait_for: "networkidle"
+  wait_timeout: 5000
+
+tool: "action_agent"
+timeout: 90000
+
+input:
+  objective: "Type \"DevTools automation\" in the search box and then click the \"Google Search\" button"
+  reasoning: "Testing multi-step interaction: text input followed by button click"
+  hint: "First fill the search input field, then find and click the search button"
+
+validation:
+  type: "js-eval"
+  js-eval:
+    script: |
+      const searchBox = document.querySelector('textarea[aria-label="Search"]');
+      searchBox?.value === 'DevTools automation' &&
+      document.querySelectorAll('#search a h3').length > 0;
+    expected_result: true
+    timeout: 5000
+
+metadata:
+  tags: ["action", "multi-step", "search", "form-fill", "click", "google", "basic"]
+  priority: "high"
+  timeout: 90000
+  retries: 2
+  flaky: false
+  owner: "devtools-team"

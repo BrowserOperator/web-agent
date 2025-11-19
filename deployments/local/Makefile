@@ -22,10 +22,14 @@ init: ## Initialize submodules (run this first)
 	cd ../../ && git submodule update --init --depth 1 submodules/browser-operator-core
 	@echo "✅ Submodules initialized"
 
-init-devtools: ## Initialize browser-operator-core submodule only
-	@echo "📦 Initializing browser-operator-core submodule..."
-	cd ../../ && git submodule update --init --depth 1 submodules/browser-operator-core
-	@echo "✅ browser-operator-core submodule initialized"
+init-devtools: ## Initialize browser-operator-core submodule only (if not already initialized)
+	@if [ ! -f ../../submodules/browser-operator-core/package.json ]; then \
+		echo "📦 Initializing browser-operator-core submodule..."; \
+		cd ../../ && git submodule update --init --depth 1 submodules/browser-operator-core; \
+		echo "✅ browser-operator-core submodule initialized"; \
+	else \
+		echo "✅ browser-operator-core already initialized (skipping to preserve branch)"; \
+	fi
 
 build-devtools-base: init-devtools ## Build DevTools base image (slow, rarely needed)
 	@echo "🔨 Building DevTools base layer (this takes ~30 minutes)..."
@@ -69,7 +73,7 @@ build: init ## Build extended image with DevTools frontend (smart: only builds D
 	cd ../../ && docker build -f deployments/local/Dockerfile -t kernel-browser:extended .
 	@echo "✅ Extended build complete"
 
-rebuild: init ## Force complete rebuild (including DevTools)
+rebuild: ## Force complete rebuild (including DevTools)
 	@echo "🔄 Force rebuilding everything from scratch..."
 	$(MAKE) --no-print-directory build-devtools
 	cd ../../ && docker build -f deployments/local/Dockerfile -t kernel-browser:extended .

@@ -135,21 +135,28 @@ class ConfigLoader:
         Returns:
             Dictionary in format expected by /v1/responses API:
             {
-                "main_model": {"provider": "...", "model": "...", "api_key": "..."},
-                "mini_model": {"provider": "...", "model": "...", "api_key": "..."},
-                "nano_model": {"provider": "...", "model": "...", "api_key": "..."}
+                "main_model": {"provider": "...", "model": "...", "api_key": "...", "endpoint": "..."},
+                "mini_model": {"provider": "...", "model": "...", "api_key": "...", "endpoint": "..."},
+                "nano_model": {"provider": "...", "model": "...", "api_key": "...", "endpoint": "..."}
             }
+            Note: endpoint is optional and only included if present in config
         """
         result = {}
 
         for tier in ['main_model', 'mini_model', 'nano_model']:
             if tier in self.config:
                 model_config = self.config[tier]
-                result[tier] = {
+                tier_config = {
                     'provider': model_config['provider'],
                     'model': model_config['model_name'],
                     'api_key': model_config['api_key']
                 }
+
+                # Include optional endpoint field if present (for LiteLLM, custom endpoints)
+                if 'endpoint' in model_config:
+                    tier_config['endpoint'] = model_config['endpoint']
+
+                result[tier] = tier_config
 
         return result
 

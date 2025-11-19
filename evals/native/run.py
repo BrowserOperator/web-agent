@@ -57,13 +57,15 @@ class EvaluationRunner:
             provider=judge_config['provider'],
             model_name=judge_config['model_name'],
             api_key=judge_config['api_key'],
-            temperature=judge_config.get('temperature')
+            temperature=judge_config.get('temperature'),
+            endpoint=judge_config.get('endpoint')
         )
         self.vision_judge = VisionJudge(
             provider=judge_config['provider'],
             model_name=judge_config['model_name'],
             api_key=judge_config['api_key'],
-            temperature=judge_config.get('temperature')
+            temperature=judge_config.get('temperature'),
+            endpoint=judge_config.get('endpoint')
         )
 
         # Get nested model config for API requests
@@ -339,32 +341,66 @@ class EvaluationRunner:
                 api_response['tab_id']
             )
 
-        # Judge the response
-        criteria = evaluation.get_validation_criteria()
-
-        # Check if visual verification is required
-        if evaluation.requires_vision_judge() and screenshot_path:
-            # Use VisionJudge with screenshot
-            screenshot_data_url = self._load_screenshot_as_data_url(screenshot_path)
-            verification_prompts = evaluation.get_verification_prompts()
+        # Judge the response based on validation type
+        if evaluation.validation_type == 'js-eval':
+            # Use JavaScript evaluation for validation
+            if not api_response.get('client_id') or not api_response.get('tab_id'):
+                return {
+                    'eval_id': evaluation.id,
+                    'eval_name': evaluation.name,
+                    'category': evaluation.category,
+                    'passed': False,
+                    'score': 0.0,
+                    'reasoning': "JavaScript validation requires client_id and tab_id in response metadata",
+                    'execution_time_ms': api_response['execution_time_ms'],
+                    'error': "Missing metadata for JavaScript execution",
+                    'screenshot_path': screenshot_path
+                }
 
             if self.verbose:
-                print(f"  Using Vision Judge with screenshot")
+                print(f"  Using JavaScript Eval Judge")
 
-            judge_result = self.vision_judge.judge(
-                input_prompt=input_message,
-                response=api_response['response'],
-                criteria=criteria,
-                screenshots={"after": screenshot_data_url} if screenshot_data_url else None,
-                verification_prompts=verification_prompts if verification_prompts else None
+            # Import JSEvalJudge here to avoid circular imports
+            from lib.judge import JSEvalJudge
+
+            js_eval_judge = JSEvalJudge(
+                api_client=self.api_client,
+                client_id=api_response['client_id'],
+                tab_id=api_response['tab_id']
+            )
+
+            judge_result = js_eval_judge.judge(
+                script=evaluation.get_js_eval_script(),
+                expected_result=evaluation.get_js_eval_expected(),
+                timeout=evaluation.get_js_eval_timeout()
             )
         else:
-            # Use standard LLMJudge
-            judge_result = self.judge.judge(
-                input_prompt=input_message,
-                response=api_response['response'],
-                criteria=criteria
-            )
+            # Original LLM-based validation
+            criteria = evaluation.get_validation_criteria()
+
+            # Check if visual verification is required
+            if evaluation.requires_vision_judge() and screenshot_path:
+                # Use VisionJudge with screenshot
+                screenshot_data_url = self._load_screenshot_as_data_url(screenshot_path)
+                verification_prompts = evaluation.get_verification_prompts()
+
+                if self.verbose:
+                    print(f"  Using Vision Judge with screenshot")
+
+                judge_result = self.vision_judge.judge(
+                    input_prompt=input_message,
+                    response=api_response['response'],
+                    criteria=criteria,
+                    screenshots={"after": screenshot_data_url} if screenshot_data_url else None,
+                    verification_prompts=verification_prompts if verification_prompts else None
+                )
+            else:
+                # Use standard LLMJudge
+                judge_result = self.judge.judge(
+                    input_prompt=input_message,
+                    response=api_response['response'],
+                    criteria=criteria
+                )
 
         # Verbose: print reasoning
         if self.verbose:

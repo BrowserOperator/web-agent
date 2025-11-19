@@ -1,0 +1,59 @@
+id: "google-count-001"
+name: "Count Google Search Results"
+description: "Execute JavaScript to count search results on Google"
+enabled: true
+
+target:
+  url: "https://www.google.com/search?q=DevTools+automation"
+  wait_for: "networkidle"
+  wait_timeout: 5000
+
+tool: "chat"
+timeout: 30000
+
+input:
+  message: "Just wait for the page to load"
+
+validation:
+  type: "js-eval"
+  js-eval:
+    timeout: 5000
+    script: |
+      (function countGoogleResults() {
+        const counts = {
+          // Main organic results
+          organic: document.querySelectorAll('.g').length,
+
+          // Alternative selector for organic results
+          organicAlt: document.querySelectorAll('.tF2Cxc').length,
+
+          // All h3 headings (result titles)
+          titles: document.querySelectorAll('#search h3').length,
+
+          // Result links with titles
+          titleLinks: document.querySelectorAll('#search a h3').length,
+
+          // People also ask
+          paa: document.querySelectorAll('[jsname="N760b"]').length,
+        };
+
+        // Get actual titles
+        const titleElements = document.querySelectorAll('#search a h3');
+        const titlesList = Array.from(titleElements).map((el, i) => ({
+          index: i + 1,
+          text: el.textContent
+        }));
+
+        return {
+          success: true,
+          counts: counts,
+          titles: titlesList.slice(0, 10),
+          summary: `Found ${counts.titleLinks} search results`
+        };
+      })();
+    expected_result:
+      success: true
+
+metadata:
+  tags: ["javascript", "google", "count"]
+  priority: "low"

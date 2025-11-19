@@ -1,0 +1,38 @@
+id: action-agent-datepicker-001
+name: Select Date from Calendar
+description: Test clicking date input and selecting a specific date from calendar
+  popup
+enabled: true
+target:
+  url: https://jqueryui.com/datepicker/
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 60000
+input:
+  objective: Click the date input field and select March 15, 2024 from the calendar
+    picker
+  reasoning: Testing interaction with calendar popup widgets
+  hint: ''
+validation:
+  type: js-eval
+  js-eval:
+    script: "// Check if March 15, 2024 was selected in the jQuery UI datepicker\n\
+      // Uses optional chaining and regex to match various date formats (03/15/2024,\
+      \ 3/15/2024, 03/15/24, 3/15/24)\n// Arrow function with implicit return (no\
+      \ return keyword needed)\n(() => (\n  document.querySelector('iframe.demo-frame')?.contentWindow?.document?.querySelector('#datepicker')?.value?.match(/^0?3\\\
+      /15\\/20?24$/) !== null\n))()"
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - datepicker
+  - calendar
+  - form
+  - popup
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

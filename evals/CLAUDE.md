@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the **Evaluation Framework** for testing browser automation agents. It uses **LLM-as-a-judge** to evaluate agent responses against defined criteria, with support for **visual verification** through screenshots.
 
-The framework is completely independent of the main browser-agent server and operates as a standalone Python application that communicates with the browser-agent-server API at http://localhost:8080.
+The framework is completely independent of the main agent server and operates as a standalone Python application that communicates with the agent server API at http://localhost:8080.
 
 ## Framework Structure
 
@@ -172,7 +172,7 @@ evals/
 │   ├── __init__.py                 # Library exports
 │   ├── config_loader.py            # Configuration management
 │   ├── eval_loader.py              # YAML evaluation loader
-│   ├── api_client.py               # HTTP client for browser-agent-server
+│   ├── api_client.py               # HTTP client for agent server
 │   ├── judge.py                    # LLMJudge, VisionJudge, SimpleJudge
 │   ├── webarena_adapter.py         # WebArena task adapter
 │   └── webarena_evaluators.py      # WebArena evaluators
@@ -639,7 +639,7 @@ task_id,site,intent,eval_types,status,score,response,execution_time_ms
 - **WebArenaTask** (lib/webarena_adapter.py:19-79) - Represents WebArena task
 - **EvalLoader** (lib/eval_loader.py:176-315) - Loads evals from YAML files
 - **WebArenaTaskLoader** (lib/webarena_adapter.py:172-330) - Loads WebArena tasks
-- **APIClient** (lib/api_client.py:10-382) - Communicates with browser-agent-server
+- **APIClient** (lib/api_client.py:10-382) - Communicates with agent server
 - **LLMJudge** (lib/judge.py:44-191) - Text-based evaluation
 - **VisionJudge** (lib/judge.py:193-386) - Visual verification
 - **StringEvaluator** (lib/webarena_evaluators.py:38-210) - String matching evaluation
