@@ -22,6 +22,7 @@ import sys
 import yaml
 import requests
 import time
+import subprocess
 from pathlib import Path
 from typing import Dict, Any, Optional
 from difflib import unified_diff
@@ -508,15 +509,87 @@ learn from previous attempts, and improve it iteratively.
         validation_file = f"{snapshot_dir}/verify.js"
 
         print("Options:")
-        print("1. Wait for Claude Code to create verify.js (recommended)")
-        print("2. Enter validation JavaScript manually")
+        print("1. Auto-run Claude Code subprocess (recommended)")
+        print("2. Wait for Claude Code manually (you run it)")
+        print("3. Enter validation JavaScript manually")
         print()
 
-        choice = input("Choice (1/2): ").strip()
+        choice = input("Choice (1/2/3): ").strip()
 
         lines = []
 
         if choice == '1':
+            # Automatically spawn Claude Code subprocess
+            print(f"\n🤖 Launching Claude Code subprocess...")
+            print()
+
+            # Construct the prompt for Claude Code
+            claude_prompt = f"Read @{marker_file} and complete the task described there. Generate the validation JavaScript and save it to {validation_file}. Test it on both tabs as instructed."
+
+            try:
+                # Call Claude Code CLI with --dangerously-skip-permissions for auto-accept
+                result = subprocess.run(
+                    ['claude', '--dangerously-skip-permissions', claude_prompt],
+                    cwd=os.getcwd(),
+                    capture_output=True,
+                    text=True,
+                    timeout=300  # 5 minute timeout
+                )
+
+                print("Claude Code output:")
+                print("─" * 60)
+                print(result.stdout)
+                if result.stderr:
+                    print("Errors:")
+                    print(result.stderr)
+                print("─" * 60)
+                print()
+
+                # Check if verify.js was created
+                if os.path.exists(validation_file):
+                    print("✅ Validation file detected!")
+                    with open(validation_file, 'r') as f:
+                        js_code = f.read().strip()
+
+                    # Clean up if it has markdown code blocks
+                    if js_code.startswith('```'):
+                        lines_raw = js_code.split('\n')
+                        if lines_raw[0].startswith('```'):
+                            lines_raw = lines_raw[1:]
+                        if lines_raw[-1].startswith('```'):
+                            lines_raw = lines_raw[:-1]
+                        js_code = '\n'.join(lines_raw).strip()
+
+                    print()
+                    print("📝 Loaded validation code:")
+                    print("─" * 60)
+                    print(js_code[:300] + "..." if len(js_code) > 300 else js_code)
+                    print("─" * 60)
+
+                    lines = js_code.split('\n')
+                else:
+                    print(f"⚠️  Claude Code ran but {validation_file} was not created")
+                    print("Falling back to manual entry...")
+                    choice = '3'
+                    lines = []
+
+            except subprocess.TimeoutExpired:
+                print("⏱️  Claude Code subprocess timed out (5 minutes)")
+                print("Falling back to manual entry...")
+                choice = '3'
+                lines = []
+            except FileNotFoundError:
+                print("❌ 'claude' command not found. Is Claude Code installed?")
+                print("Falling back to manual entry...")
+                choice = '3'
+                lines = []
+            except Exception as e:
+                print(f"❌ Error running Claude Code: {e}")
+                print("Falling back to manual entry...")
+                choice = '3'
+                lines = []
+
+        elif choice == '2':
             print(f"\n⏳ Waiting for {validation_file} to be created...")
             print("   (Claude Code will create this file)")
             print()
@@ -557,9 +630,9 @@ learn from previous attempts, and improve it iteratively.
             if not lines:
                 print("⏱️  Timeout waiting for validation file")
                 print("   Falling back to manual entry...")
-                choice = '2'
+                choice = '3'
 
-        if choice == '2':
+        if choice == '3':
             print("\nEnter validation JavaScript (type 'END' on new line when done):\n")
             while True:
                 line = input()

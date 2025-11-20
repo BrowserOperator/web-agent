@@ -58,8 +58,12 @@ cp .env.example .env
 # Navigate to native runner directory
 cd native
 
-# Run a specific evaluation by path (relative to data/)
+# Run a specific evaluation by file path (relative to data/)
 python3 run.py --path test-simple/math-001.yaml
+
+# Run a specific evaluation by directory path (NEW: auto-detects task.yaml)
+python3 run.py --path js-verifier/action/dropdown
+python3 run.py --path js-verifier/action/daterange --verbose
 
 # Run with verbose output (shows input, response, reasoning, screenshots)
 python3 run.py --path action-agent/accordion-001.yaml --verbose
