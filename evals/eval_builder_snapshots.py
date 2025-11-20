@@ -643,13 +643,12 @@ learn from previous attempts, and improve it iteratively.
         if lines:
             js_code = '\n'.join(lines)
 
-            # Test it with retry loop
+            # Test it with retry loop (unlimited retries until user cancels)
             validation_saved = False
-            max_retries = 3
             retry_count = 0
 
-            while retry_count <= max_retries and not validation_saved:
-                print(f"\n🧪 Testing validation... (attempt {retry_count + 1}/{max_retries + 1})")
+            while not validation_saved:
+                print(f"\n🧪 Testing validation... (attempt {retry_count + 1})")
 
                 if await self._test_validation(js_code):
                     # Save validation JavaScript to external file
@@ -667,7 +666,11 @@ learn from previous attempts, and improve it iteratively.
 
                     # Reference external file in YAML
                     if 'validation' not in self.eval_data:
-                        self.eval_data['validation'] = {'type': 'js-eval', 'js-eval': {}}
+                        self.eval_data['validation'] = {}
+                    if 'type' not in self.eval_data['validation']:
+                        self.eval_data['validation']['type'] = 'js-eval'
+                    if 'js-eval' not in self.eval_data['validation']:
+                        self.eval_data['validation']['js-eval'] = {}
 
                     self.eval_data['validation']['js-eval']['script'] = 'verify.js'
                     self.eval_data['validation']['js-eval']['expected_result'] = True
@@ -675,59 +678,51 @@ learn from previous attempts, and improve it iteratively.
                     print("✅ Validation saved")
                     validation_saved = True
                 else:
-                    # Test failed
-                    if retry_count < max_retries:
-                        print(f"\n⚠️  Validation test failed. You have {max_retries - retry_count} retries remaining.")
-                        print("\nOptions:")
-                        print("1. Let Claude Code fix it (updates verify.js)")
-                        print("2. Enter new validation manually")
-                        print("3. Save anyway (not recommended)")
-                        print("4. Skip validation for now")
+                    # Test failed - allow unlimited retries
+                    print(f"\n⚠️  Validation test failed.")
+                    print("\nOptions:")
+                    print("1. Auto-run Claude Code to fix it (recommended)")
+                    print("2. Enter new validation manually")
+                    print("3. Save anyway (not recommended)")
+                    print("4. Skip validation for now")
 
-                        retry_choice = input("\nChoice (1/2/3/4): ").strip()
+                    retry_choice = input("\nChoice (1/2/3/4): ").strip()
 
-                        if retry_choice == '1':
-                            # Wait for Claude Code to update the file
-                            print()
-                            print("=" * 80)
-                            print("🔧 CLAUDE CODE: Fix the Validation JavaScript")
-                            print("=" * 80)
-                            print()
-                            print("📋 API Testing Information:")
-                            print(f"   Endpoint:     POST http://localhost:8080/page/execute")
-                            print(f"   Client ID:    {self.client_id}")
-                            print(f"   Tab ID (AFTER - task completed):  {self.tab_id}")
-                            if self.tab_id_before:
-                                print(f"   Tab ID (BEFORE - initial state): {self.tab_id_before}")
-                            print()
-                            print("📝 What to do in Claude Code:")
-                            print(f"   1. Edit and fix the JavaScript in: {validation_file}")
-                            print("   2. Remove any 'return' statements")
-                            print("   3. Test on BOTH tabs using /page/execute endpoint:")
-                            if self.tab_id_before:
-                                print(f"      - AFTER tab ({self.tab_id}) → should return TRUE")
-                                print(f"      - BEFORE tab ({self.tab_id_before}) → should return FALSE")
-                            else:
-                                print(f"      - AFTER tab ({self.tab_id}) → should return TRUE")
-                            print(f"   4. Iterate until both tests pass correctly")
-                            print(f"   5. Save your fixes back to: {validation_file}")
-                            print()
-                            print("   💡 Claude Code can read the existing file and improve it iteratively")
-                            if self.tab_id_before:
-                                print("   ⚠️  Validation MUST return TRUE on AFTER, FALSE on BEFORE")
-                            print()
-                            print("=" * 80)
+                    if retry_choice == '1':
+                        # Auto-run Claude Code subprocess to fix the validation
+                        print(f"\n🤖 Launching Claude Code subprocess to fix validation...")
+                        print()
+
+                        # Construct the prompt for Claude Code
+                        marker_file = f"{snapshot_dir}/CLAUDE_REQUEST.md"
+                        claude_prompt = f"Read @{marker_file} and fix the validation JavaScript in {validation_file}. The previous attempt failed - analyze the error and fix it. Test it on both tabs as instructed."
+
+                        try:
+                            # Call Claude Code CLI with --dangerously-skip-permissions for auto-accept
+                            result = subprocess.run(
+                                ['claude', '--dangerously-skip-permissions', claude_prompt],
+                                cwd=os.getcwd(),
+                                capture_output=True,
+                                text=True,
+                                timeout=300  # 5 minute timeout
+                            )
+
+                            print("Claude Code output:")
+                            print("─" * 60)
+                            print(result.stdout)
+                            if result.stderr:
+                                print("Errors:")
+                                print(result.stderr)
+                            print("─" * 60)
                             print()
 
-                            input("Press Enter when Claude Code has updated the file...")
-                            print()
-
+                            # Check if verify.js was updated
                             if os.path.exists(validation_file):
                                 print("✅ Updated file detected!")
                                 with open(validation_file, 'r') as f:
                                     js_code = f.read().strip()
 
-                                # Clean up markdown if present
+                                # Clean up if it has markdown code blocks
                                 if js_code.startswith('```'):
                                     lines_raw = js_code.split('\n')
                                     if lines_raw[0].startswith('```'):
@@ -745,79 +740,68 @@ learn from previous attempts, and improve it iteratively.
                                 print("🔄 Re-testing with updated code...")
 
                                 retry_count += 1
-                                # Continue to top of loop to re-test
                                 continue
                             else:
-                                print("❌ File not found. Please try again.")
+                                print(f"⚠️  Claude Code ran but {validation_file} was not found")
                                 retry_count += 1
                                 continue
 
-                        elif retry_choice == '2':
-                            # Manual entry
-                            print("\nEnter validation JavaScript (type 'END' on new line when done):\n")
-                            new_lines = []
-                            while True:
-                                line = input()
-                                if line.strip() == 'END':
-                                    break
-                                new_lines.append(line)
-                            js_code = '\n'.join(new_lines)
+                        except subprocess.TimeoutExpired:
+                            print("⏱️  Claude Code subprocess timed out (5 minutes)")
+                            retry_count += 1
+                            continue
+                        except FileNotFoundError:
+                            print("❌ 'claude' command not found. Is Claude Code installed?")
+                            retry_count += 1
+                            continue
+                        except Exception as e:
+                            print(f"❌ Error running Claude Code: {e}")
                             retry_count += 1
                             continue
 
-                        elif retry_choice == '3':
-                            # Save anyway
-                            # Save validation JavaScript to external file
-                            eval_dir = os.path.dirname(self.file_path)
-                            verify_js_path = os.path.join(eval_dir, 'verify.js')
+                    elif retry_choice == '2':
+                        # Manual entry
+                        print("\nEnter validation JavaScript (type 'END' on new line when done):\n")
+                        new_lines = []
+                        while True:
+                            line = input()
+                            if line.strip() == 'END':
+                                break
+                            new_lines.append(line)
+                        js_code = '\n'.join(new_lines)
+                        retry_count += 1
+                        continue
 
-                            # Ensure eval directory exists
-                            os.makedirs(eval_dir, exist_ok=True)
+                    elif retry_choice == '3':
+                        # Save anyway
+                        # Save validation JavaScript to external file
+                        eval_dir = os.path.dirname(self.file_path)
+                        verify_js_path = os.path.join(eval_dir, 'verify.js')
 
-                            # Write JavaScript to external file
-                            with open(verify_js_path, 'w') as f:
-                                f.write(js_code)
+                        # Ensure eval directory exists
+                        os.makedirs(eval_dir, exist_ok=True)
 
-                            print(f"💾 Saved validation script to: {verify_js_path}")
+                        # Write JavaScript to external file
+                        with open(verify_js_path, 'w') as f:
+                            f.write(js_code)
 
-                            # Reference external file in YAML
-                            if 'validation' not in self.eval_data:
-                                self.eval_data['validation'] = {'type': 'js-eval', 'js-eval': {}}
-                            self.eval_data['validation']['js-eval']['script'] = 'verify.js'
-                            self.eval_data['validation']['js-eval']['expected_result'] = True
-                            self.eval_data['validation']['js-eval']['timeout'] = 5000
-                            print("⚠️  Validation saved (with errors - use caution!)")
-                            validation_saved = True
+                        print(f"💾 Saved validation script to: {verify_js_path}")
 
-                        else:  # Choice 4 or anything else
-                            print("⏭️  Skipping validation")
-                            break
-                    else:
-                        # Out of retries
-                        print(f"\n❌ Maximum retries ({max_retries}) reached.")
-                        save_anyway = input("Save validation anyway? (y/n): ").strip().lower()
-                        if save_anyway == 'y':
-                            # Save validation JavaScript to external file
-                            eval_dir = os.path.dirname(self.file_path)
-                            verify_js_path = os.path.join(eval_dir, 'verify.js')
+                        # Reference external file in YAML
+                        if 'validation' not in self.eval_data:
+                            self.eval_data['validation'] = {}
+                        if 'type' not in self.eval_data['validation']:
+                            self.eval_data['validation']['type'] = 'js-eval'
+                        if 'js-eval' not in self.eval_data['validation']:
+                            self.eval_data['validation']['js-eval'] = {}
+                        self.eval_data['validation']['js-eval']['script'] = 'verify.js'
+                        self.eval_data['validation']['js-eval']['expected_result'] = True
+                        self.eval_data['validation']['js-eval']['timeout'] = 5000
+                        print("⚠️  Validation saved (with errors - use caution!)")
+                        validation_saved = True
 
-                            # Ensure eval directory exists
-                            os.makedirs(eval_dir, exist_ok=True)
-
-                            # Write JavaScript to external file
-                            with open(verify_js_path, 'w') as f:
-                                f.write(js_code)
-
-                            print(f"💾 Saved validation script to: {verify_js_path}")
-
-                            # Reference external file in YAML
-                            if 'validation' not in self.eval_data:
-                                self.eval_data['validation'] = {'type': 'js-eval', 'js-eval': {}}
-                            self.eval_data['validation']['js-eval']['script'] = 'verify.js'
-                            self.eval_data['validation']['js-eval']['expected_result'] = True
-                            self.eval_data['validation']['js-eval']['timeout'] = 5000
-                            print("⚠️  Validation saved (with errors)")
-                            validation_saved = True
+                    else:  # Choice 4 or anything else
+                        print("⏭️  Skipping validation")
                         break
         else:
             print("⚠️  No validation code entered")
