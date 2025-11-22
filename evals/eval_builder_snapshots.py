@@ -23,17 +23,47 @@ import yaml
 import requests
 import time
 import subprocess
+from lxml.html.clean import Cleaner
 from pathlib import Path
 from typing import Dict, Any, Optional
 from difflib import unified_diff
 
 
+def filter_html_tags(html: str) -> str:
+    """
+    Clean HTML using lxml.html.Cleaner.
+    Removes scripts, styles, and unsafe attributes while preserving DOM structure.
+
+    Args:
+        html: HTML string to clean
+
+    Returns:
+        Cleaned HTML string
+    """
+    cleaner = Cleaner(
+        scripts=True,          # drop <script> elements
+        javascript=True,       # remove on* event attributes (like onclick)
+        style=True,            # drop <style> blocks
+        inline_style=True,     # drop style="" attributes on tags
+        safe_attrs_only=True,  # remove any tag attributes not in a safe allowlist
+        frames=False,          # keep <iframe> elements (content already captured by API)
+        forms=False            # keep <form> elements
+    )
+    try:
+        cleaned_html = cleaner.clean_html(html)
+        return cleaned_html
+    except Exception as e:
+        print(f"⚠️  Warning: HTML cleaning failed ({e}), using original HTML")
+        return html
+
+
 class SnapshotBasedEvalBuilder:
     """Build eval files using before/after snapshots."""
 
-    def __init__(self, file_path: Optional[str] = None, workdir: Optional[str] = None):
+    def __init__(self, file_path: Optional[str] = None, workdir: Optional[str] = None, disable_filtering: bool = False):
         self.file_path = file_path
         self.workdir = workdir  # Working directory for snapshots and validation scripts
+        self.disable_filtering = disable_filtering  # If False, filter <style> and <script> tags
         self.eval_data: Dict[str, Any] = {}
         self.client_id: Optional[str] = None
         self.tab_id: Optional[str] = None
@@ -294,9 +324,17 @@ class SnapshotBasedEvalBuilder:
 
         print("🔍 Analyzing differences...")
 
-        # Find differences
-        before_lines = self.snapshot_before.split('\n')
-        after_lines = self.snapshot_after.split('\n')
+        # Apply filtering FIRST if enabled (default behavior)
+        before_content = self.snapshot_before
+        after_content = self.snapshot_after
+        if not self.disable_filtering:
+            print("🧹 Cleaning HTML with lxml.html.Cleaner...")
+            before_content = filter_html_tags(before_content)
+            after_content = filter_html_tags(after_content)
+
+        # Find differences from FILTERED content
+        before_lines = before_content.split('\n')
+        after_lines = after_content.split('\n')
 
         diff = list(unified_diff(
             before_lines,
@@ -320,10 +358,10 @@ class SnapshotBasedEvalBuilder:
         diff_file = f"{snapshot_dir}/diff.txt"
 
         with open(before_file, 'w') as f:
-            f.write(self.snapshot_before)
+            f.write(before_content)
 
         with open(after_file, 'w') as f:
-            f.write(self.snapshot_after)
+            f.write(after_content)
 
         with open(diff_file, 'w') as f:
             f.write('\n'.join(diff))
@@ -332,6 +370,8 @@ class SnapshotBasedEvalBuilder:
         print(f"   BEFORE: {before_file}")
         print(f"   AFTER:  {after_file}")
         print(f"   DIFF:   {diff_file}")
+        if not self.disable_filtering:
+            print("   (Cleaned: removed scripts, styles, and unsafe attributes)")
 
         # Show sample of changes
         if added_lines:
@@ -508,14 +548,11 @@ learn from previous attempts, and improve it iteratively.
         # Wait for Claude to create the validation file
         validation_file = f"{snapshot_dir}/verify.js"
 
-        print("Options:")
-        print("1. Auto-run Claude Code subprocess (recommended)")
-        print("2. Wait for Claude Code manually (you run it)")
-        print("3. Enter validation JavaScript manually")
+        # Automatically run Claude Code subprocess (no user prompt)
+        print("🤖 Auto-running Claude Code subprocess to generate validation...")
         print()
 
-        choice = input("Choice (1/2/3): ").strip()
-
+        choice = '1'
         lines = []
 
         if choice == '1':
@@ -643,12 +680,13 @@ learn from previous attempts, and improve it iteratively.
         if lines:
             js_code = '\n'.join(lines)
 
-            # Test it with retry loop (unlimited retries until user cancels)
+            # Test it with retry loop (max 3 attempts)
             validation_saved = False
             retry_count = 0
+            max_retries = 3
 
-            while not validation_saved:
-                print(f"\n🧪 Testing validation... (attempt {retry_count + 1})")
+            while not validation_saved and retry_count < max_retries:
+                print(f"\n🧪 Testing validation... (attempt {retry_count + 1}/{max_retries})")
 
                 if await self._test_validation(js_code):
                     # Save validation JavaScript to external file
@@ -678,17 +716,17 @@ learn from previous attempts, and improve it iteratively.
                     print("✅ Validation saved")
                     validation_saved = True
                 else:
-                    # Test failed - allow unlimited retries
-                    print(f"\n⚠️  Validation test failed.")
-                    print("\nOptions:")
-                    print("1. Auto-run Claude Code to fix it (recommended)")
-                    print("2. Enter new validation manually")
-                    print("3. Save anyway (not recommended)")
-                    print("4. Skip validation for now")
+                    # Test failed - auto-retry with Claude Code
+                    retry_count += 1
 
-                    retry_choice = input("\nChoice (1/2/3/4): ").strip()
+                    if retry_count < max_retries:
+                        print(f"\n⚠️  Validation test failed. Auto-retrying with Claude Code... ({retry_count}/{max_retries})")
+                    else:
+                        print(f"\n❌ Validation failed after {max_retries} attempts. Skipping validation.")
+                        break
 
-                    if retry_choice == '1':
+                    # Auto-run Claude Code to fix (no user prompt)
+                    if retry_count < max_retries:
                         # Auto-run Claude Code subprocess to fix the validation
                         print(f"\n🤖 Launching Claude Code subprocess to fix validation...")
                         print()
@@ -738,71 +776,25 @@ learn from previous attempts, and improve it iteratively.
                                 print("─" * 60)
                                 print()
                                 print("🔄 Re-testing with updated code...")
-
-                                retry_count += 1
+                                # Continue to next iteration (retry_count already incremented)
                                 continue
                             else:
                                 print(f"⚠️  Claude Code ran but {validation_file} was not found")
-                                retry_count += 1
+                                # Skip to next retry
                                 continue
 
                         except subprocess.TimeoutExpired:
                             print("⏱️  Claude Code subprocess timed out (5 minutes)")
-                            retry_count += 1
+                            # Skip to next retry
                             continue
                         except FileNotFoundError:
                             print("❌ 'claude' command not found. Is Claude Code installed?")
-                            retry_count += 1
+                            # Skip to next retry
                             continue
                         except Exception as e:
                             print(f"❌ Error running Claude Code: {e}")
-                            retry_count += 1
+                            # Skip to next retry
                             continue
-
-                    elif retry_choice == '2':
-                        # Manual entry
-                        print("\nEnter validation JavaScript (type 'END' on new line when done):\n")
-                        new_lines = []
-                        while True:
-                            line = input()
-                            if line.strip() == 'END':
-                                break
-                            new_lines.append(line)
-                        js_code = '\n'.join(new_lines)
-                        retry_count += 1
-                        continue
-
-                    elif retry_choice == '3':
-                        # Save anyway
-                        # Save validation JavaScript to external file
-                        eval_dir = os.path.dirname(self.file_path)
-                        verify_js_path = os.path.join(eval_dir, 'verify.js')
-
-                        # Ensure eval directory exists
-                        os.makedirs(eval_dir, exist_ok=True)
-
-                        # Write JavaScript to external file
-                        with open(verify_js_path, 'w') as f:
-                            f.write(js_code)
-
-                        print(f"💾 Saved validation script to: {verify_js_path}")
-
-                        # Reference external file in YAML
-                        if 'validation' not in self.eval_data:
-                            self.eval_data['validation'] = {}
-                        if 'type' not in self.eval_data['validation']:
-                            self.eval_data['validation']['type'] = 'js-eval'
-                        if 'js-eval' not in self.eval_data['validation']:
-                            self.eval_data['validation']['js-eval'] = {}
-                        self.eval_data['validation']['js-eval']['script'] = 'verify.js'
-                        self.eval_data['validation']['js-eval']['expected_result'] = True
-                        self.eval_data['validation']['js-eval']['timeout'] = 5000
-                        print("⚠️  Validation saved (with errors - use caution!)")
-                        validation_saved = True
-
-                    else:  # Choice 4 or anything else
-                        print("⏭️  Skipping validation")
-                        break
         else:
             print("⚠️  No validation code entered")
 
@@ -928,6 +920,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Snapshot-based eval builder")
     parser.add_argument('--file', '-f', help='Eval file path (default: <workdir>/task.yaml)')
     parser.add_argument('--workdir', '-w', required=True, help='Working directory for snapshots and validation scripts')
+    parser.add_argument('--disable-filtering', action='store_true', help='Disable HTML cleaning (keep raw HTML with scripts/styles)')
     args = parser.parse_args()
 
     # Normalize workdir path (strip 'evals/' prefix if present and we're already in evals/)
@@ -939,18 +932,24 @@ async def main():
     # Strip trailing slashes to avoid double slashes in paths
     workdir = workdir.rstrip('/')
 
-    # Auto-detect task.yaml in workdir if no file specified
+    # Auto-detect task.yaml or task.yml in workdir if no file specified
     file_path = args.file
     if not file_path:
+        # Check for both .yaml and .yml extensions
         task_yaml_path = os.path.join(workdir, 'task.yaml')
+        task_yml_path = os.path.join(workdir, 'task.yml')
+
         if os.path.exists(task_yaml_path):
             file_path = task_yaml_path
             print(f"📋 Found existing task.yaml: {file_path}")
+        elif os.path.exists(task_yml_path):
+            file_path = task_yml_path
+            print(f"📋 Found existing task.yml: {file_path}")
         else:
             file_path = task_yaml_path  # Will be created as new file
             print(f"📝 Will create new task.yaml: {file_path}")
 
-    builder = SnapshotBasedEvalBuilder(file_path=file_path, workdir=workdir)
+    builder = SnapshotBasedEvalBuilder(file_path=file_path, workdir=workdir, disable_filtering=args.disable_filtering)
     await builder.run()
 
 
