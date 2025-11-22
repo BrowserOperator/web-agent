@@ -1,0 +1,769 @@
+<html lang="en"><head>
+    
+    
+    <meta charset="utf-8">
+    <title>Improvely</title>
+
+    <link rel="shortcut icon" type="image/png" href="/images/icon-64.png">
+    
+    <script type="text/javascript">
+    window._wl = false;
+    
+    var userprefs = {
+      goal: 'all',
+      metric1: 'people',
+      metric2: 'conversions',
+      units: 'days',
+      start: '2025-10-21',
+      end: '2025-11-19',
+      timezone: 'America/New_York',
+      plan_id: 3,
+      columns: ''
+    };
+    </script>
+
+        <link href="/css/app.min.css?v=20190514" rel="stylesheet">
+    <script src="/js/app.min.js?v=20230102"></script>
+    
+    <link rel="stylesheet" href="/css/font-awesome.min.css">
+
+    <script>hljs.initHighlightingOnLoad();</script>
+
+    
+    
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <script>
+      $(function() {
+
+        $('#left-side-nav-toggle').click(function() {
+          if ($('#left-side-nav').hasClass('minimized')) {
+
+            $('#left-side-nav').removeClass('minimized');
+            $('#left-side-nav-toggle').removeClass('minimized').html('<i class="fa fa-chevron-left"></i>');
+            $('#content-fixed').removeClass('minimized');
+            $('#sub-nav').removeClass('minimized');
+
+            var date = new Date();
+            date.setDate(date.getDate() + 365);
+            document.cookie = 'minimized=0; expires=' + date.toUTCString() + '; path=/';
+
+          } else {
+
+            $('#left-side-nav').addClass('minimized');
+            $('#left-side-nav-toggle').addClass('minimized').html('<i class="fa fa-chevron-right"></i>');
+            $('#content-fixed').addClass('minimized');
+            $('#sub-nav').addClass('minimized');
+
+            var date = new Date();
+            date.setDate(date.getDate() + 365);
+            document.cookie = 'minimized=1; expires=' + date.toUTCString() + '; path=/';
+
+          }
+
+        });
+
+        if (!$('#left-side-nav').is(':visible')) {
+            $('#content-fixed').css('margin-left', 0);
+            $('#sub-nav').css('left', 0);
+        }
+
+      });
+    </script>
+
+  </head>
+<body class="  pace-done"><div class="pace  pace-inactive"><div class="pace-progress" data-progress-text="100%" data-progress="99" style="transform: translate3d(100%, 0px, 0px);">
+  <div class="pace-progress-inner"></div>
+</div>
+<div class="pace-activity"></div></div>
+
+  <!-- Top Nav -->
+  <div id="top-nav">
+
+    <div class="hidden-md hidden-lg">
+
+      <ul class="nav nav-pills"> 
+        <li class="dropdown project-menu">
+
+                      <a href="#" class="dropdown-toggle" data-toggle="dropdown" style="width: auto; min-width: auto">
+              <i class="fa fa-folder-open fa-lg"></i> <span class="caret"></span>
+            </a>
+          
+                   <ul class="dropdown-menu">
+            
+              
+              <li>
+                <a href="/reports/webshop/overview"><i class="fa fa-folder fa-fw"></i> Web Shop</a>                
+              </li>
+            
+                        <li style="border-top: 1px solid #fff; padding-top: 5px">
+              <a href="/"><i class="fa fa-th-list fa-fw"></i> Projects Overview</a>            </li>
+            
+                        <li>
+              <a href="/project/new"><i class="fa fa-plus fa-fw"></i> New Project</a>            </li>
+            
+          </ul>
+          
+        </li>
+
+                
+        <li class="dropdown">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+            <i class="fa fa-bar-chart"></i> <span class="caret"></span>
+          </a>
+          <ul class="dropdown-menu">
+
+            <li><a href="/reports/webshop/overview"><i class="fa fa-th-large fa-fw"></i> <span>Dashboard</span></a></li>
+
+            <li class="active"><a href="/reports/webshop/all"><i class="fa fa-bar-chart fa-fw"></i> <span>Traffic Sources</span></a></li>
+
+            <li><a href="/reports/webshop/links"><i class="fa fa-link fa-fw"></i> <span>Tracking Links</span></a></li>
+
+            <li><a href="/reports/webshop/funnels"><i class="fa fa-filter fa-fw"></i> <span>Conversion Funnels</span></a></li>
+
+            <li><a href="/reports/webshop/fraud"><i class="fa fa-fw fa-exclamation-triangle"></i> <span>Click Fraud</span></a></li>
+
+            <li><a href="/reports/webshop/people/explore"><i class="fa fa-fw fa-users"></i> <span>People Explorer</span></a></li>
+
+                        <li><a href="/project/webshop"><i class="fa fa-fw fa-cog"></i> <span>Settings</span></a></li>
+            
+          </ul>
+
+        </li>
+        
+        
+          
+          <li class="dropdown">
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+              <i class="fa fa-wrench"></i> <span class="caret"></span>
+            </a>
+            <ul class="dropdown-menu">
+                            <li><a href="/tools/webshop/import"><i class="fa fa-fw fa-upload"></i> Import PPC Costs</a></li>
+              <li><a href="/tools/webshop/affiliate/import"><i class="fa fa-fw fa-upload"></i> Import Affiliate Commissions</a></li>
+                            <li><a href="/reports/webshop/realtime"><i class="fa fa-fw fa-eye"></i> Realtime Spy</a></li>
+            </ul>
+          </li>
+
+        
+        <li class="dropdown">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+            <i class="fa fa-user-circle"></i> <span class="caret"></span>
+          </a>
+          <ul class="dropdown-menu">
+            <li><a href="/profile"><i class="fa fa-fw fa-user"></i> Profile</a></li>
+                        <li><a href="/plan"><i class="fa fa-fw fa-credit-card"></i> Billing</a></li>
+            <li><a href="/users"><i class="fa fa-fw fa-users"></i> Users</a></li>
+                          <li><a href="/api"><i class="fa fa-fw fa-key"></i> API Access</a></li>
+                        <li><a href="/logout"><i class="fa fa-fw fa-power-off"></i> Log Out</a></li>
+          </ul>
+        </li>
+
+      </ul>
+
+    </div>
+
+    <div class="hidden-xs hidden-sm">
+
+      <ul class="nav navbar-nav" style="float: left; margin: 0"> 
+        <li class="dropdown project-menu">
+
+                      <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+              <i class="fa fa-lg fa-folder-open"></i> <b>Project:</b> 
+              Web Shop              <span class="caret"></span>
+            </a>
+          
+                   <ul class="dropdown-menu">
+            
+              
+              <li>
+                <a href="/reports/webshop/overview"><i class="fa fa-fw fa-folder"></i> Web Shop</a>                
+              </li>
+            
+                        <li style="border-top: 1px solid #fff; padding-top: 5px">
+              <a href="/"><i class="fa fa-fw fa-th-list"></i> Projects Overview</a>            </li>
+            
+                        <li>
+              <a href="/project/new"><i class="fa fa-fw fa-plus"></i> New Project</a>            </li>
+            
+          </ul>
+          
+        </li>
+      </ul>
+
+      <ul class="nav navbar-nav navbar-right" style="float: right"> 
+
+        
+        
+        <li class="dropdown alerts" id="alerts">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+            <i class="fa fa-bell"></i> 
+            <span class="label label-warning">4</span>
+          </a>
+          <ul class="dropdown-menu">
+            <li class="dropdown-header">Recent Updates</li>
+
+                          <li id="news_24" class="news">
+                <a href="https://www.improvely.com/blog/2023/07/30/improvely-is-google-certified/">
+                  <i class="fa fa-fw fa-circle" style="color: #f0ad4e"></i>&nbsp; 
+                  Improvely is Google Certified                </a>
+              </li>
+
+                          <li id="news_23" class="news">
+                <a href="https://www.improvely.com/blog/2022/12/03/an-update-to-the-data-retention-policy/">
+                  <i class="fa fa-fw fa-circle" style="color: #f0ad4e"></i>&nbsp; 
+                  An Update to the Data Retention Policy                </a>
+              </li>
+
+                          <li id="news_22" class="news">
+                <a href="https://www.improvely.com/blog/2021/06/29/automatic-ssl-for-white-label-domains/">
+                  <i class="fa fa-fw fa-circle" style="color: #f0ad4e"></i>&nbsp; 
+                  Automatic SSL for White Label Domains                </a>
+              </li>
+
+                          <li id="news_21" class="news">
+                <a href="https://www.improvely.com/blog/2020/12/20/bing-ads-click-id-updates/">
+                  <i class="fa fa-fw fa-circle" style="color: #f0ad4e"></i>&nbsp; 
+                  Bing Ads &amp; Click ID Updates                </a>
+              </li>
+
+            
+          </ul>
+        </li>    
+          
+
+        
+          
+          <li class="dropdown">
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+              <i class="fa fa-lg fa-wrench"></i>
+              Tools
+              <span class="caret"></span>
+            </a>
+            <ul class="dropdown-menu">
+                            <li><a href="/tools/webshop/import"><i class="fa fa-fw fa-upload"></i> Import PPC Costs</a></li>
+              <li><a href="/tools/webshop/affiliate/import"><i class="fa fa-fw fa-upload"></i> Import Affiliate Commissions</a></li>
+                            <li><a href="/reports/webshop/realtime"><i class="fa fa-fw fa-eye"></i> Realtime Spy</a></li>
+            </ul>
+          </li>
+
+        
+        <li class="dropdown profile">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+            <i class="fa fa-user-circle fa-lg"></i>
+            Account Settings
+            <span class="caret"></span>
+          </a>
+          <ul class="dropdown-menu">
+            <li><a href="/profile"><i class="fa fa-user"></i> Profile</a></li>
+                        <li><a href="/plan"><i class="fa fa-credit-card"></i> Billing</a></li>
+            <li><a href="/users"><i class="fa fa-users"></i> Users</a></li>
+                          <li><a href="/api"><i class="fa fa-key"></i> API Access</a></li>
+                        <li><a href="/logout"><i class="fa fa-power-off"></i> Log Out</a></li>
+          </ul>
+        </li>
+
+      </ul>
+
+    </div>
+
+  </div>
+
+  
+    
+    <!-- Menu Toggle -->
+        <div id="left-side-nav-toggle" class="hidden-xs hidden-sm">
+      <i class="fa fa-chevron-left"></i>
+    </div>
+    
+    <!-- Left Menu -->
+    <div id="left-side-nav" class="hidden-xs hidden-sm">
+      
+      <!-- Left Nav -->
+      <ul class="fa-ul new-side-nav">
+
+        <li><a href="/reports/webshop/overview"><i class="fa fa-fw fa-th-large"></i><span>Dashboard</span></a></li>
+
+        <li class="active"><a href="/reports/webshop/all"><i class="fa fa-fw fa-bar-chart"></i><span>Traffic Sources</span></a></li>
+
+        <li><a href="/reports/webshop/links"><i class="fa fa-fw fa-link"></i><span>Tracking Links</span></a></li>
+
+        <li><a href="/reports/webshop/funnels"><i class="fa fa-fw fa-filter"></i><span>Conversion Funnels</span></a></li>
+
+        <li><a href="/reports/webshop/fraud"><i class="fa fa-fw fa-exclamation-triangle"></i><span>Click Fraud</span></a></li>
+
+        <li><a href="/reports/webshop/people/explore"><i class="fa fa-fw fa-users"></i><span>People Explorer</span></a></li>
+
+                <li><a href="/project/webshop"><i class="fa fa-fw fa-cog"></i><span>Settings</span></a></li>
+
+        <li>
+          <div style="border-top: 1px solid #ddd; height: 1px; margin: 5px 0"></div>
+        </li>
+
+        <li class="dropup">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+            <i class="fa fa-plus" style="color: #5eb95e"></i><span>Create New &nbsp;<i class="fa fa-caret-down" style="font-size: 14px"></i></span>
+          </a>
+          <ul class="dropdown-menu">
+            <li><a href="/tools/webshop/link_builder"><i class="fa fa-fw fa-link"></i> Tracking Link</a></li>
+            <li><a href="/tools/webshop/link_builder?ab=true"><i class="fa fa-fw fa-random"></i> A/B Split Test</a></li>
+            <li><a href="/tools/webshop/affiliate/link_builder"><i class="fa fa-fw fa-share"></i> Affiliate Outlink</a></li>
+            <li><a href="/tools/webshop/funnel_builder"><i class="fa fa-fw fa-filter"></i> Funnel Report</a></li>
+            <li><a href="/user"><i class="fa fa-fw fa-user"></i> User</a></li>
+          </ul>
+        </li>
+        
+      </ul>
+
+    </div>
+
+    <!-- Sub Nav -->
+    <div id="sub-nav" style="left: 0px;"><ul class="nav nav-pills"><li><a href="/reports/webshop/all"><i class="fa fa-globe"></i> All Traffic</a></li><li class="active"><a href="/reports/webshop/ads"><i class="fa fa-bullhorn"></i> Ad Traffic</a></li><li><a href="/reports/webshop/organic"><i class="fa fa-share-alt"></i> Organic Traffic</a></li><li><a href="/reports/webshop/search"><i class="fa fa-search"></i> Search Traffic</a></li></ul></div>
+  
+  <!-- Content Area -->
+
+  
+        <div id="content-fixed" style="margin-left: 0px;">
+    
+      <div class="container-fluid">
+
+        <script type="text/javascript">
+currency_symbol = '$';
+</script>
+
+<div class="row">
+
+	<div class="col-md-12">
+
+		<div id="daterange" class="selectbox pull-right">
+			<i class="fa fa-calendar"></i>
+			<span>February 1, 2024 - February 28, 2024</span> <b class="caret"></b>
+		</div>
+	
+		<div class="pull-right" style="margin-right: 10px">
+			<select name="goal" id="goalfilter" style="width: 150px; display: none;" multiple="multiple">
+													<option value="sale">Sale</option>
+							</select><div class="btn-group"><button type="button" class="multiselect dropdown-toggle btn selectbox" data-toggle="dropdown" title="None selected"><span class="multiselect-selected-text"><i class="fa fa-flag"></i> <b>Goal:</b> All Goals</span> <b class="caret"></b></button><ul class="multiselect-container dropdown-menu" style="max-height: 300px; overflow: hidden auto;"><li class="multiselect-item filter" value="0"><div class="input-group"><span class="input-group-addon" style="display: none;"><i class="fa fa-search"></i></span><input class="form-control multiselect-search" type="text" placeholder="Search"><span class="input-group-btn" style="display: none;"><button class="btn btn-default multiselect-clear-filter" type="button"><i class="fa fa-minus-circle"></i></button></span></div></li><li class="multiselect-item multiselect-all"><a tabindex="0" class="multiselect-all"><label class="checkbox"><input type="checkbox" value="all"> Select All</label></a></li><li><a tabindex="0"><label class="checkbox"><input type="checkbox" value="sale"> Sale</label></a></li></ul></div>
+		</div>
+
+		<div class="transparent-header">
+			<h2>Web Shop</h2>
+			<h1>Ad Traffic</h1>
+		</div>
+
+	</div>
+
+</div>
+
+<div class="row" style="margin-bottom: 20px">
+	<div class="col-md-12">
+
+		<div class="breadcrumbs">
+			<ul class="breadcrumb-alt">
+
+						<li><a href="?tab=channel">All Sources</a></li>
+			
+					</ul>
+		</div>	
+
+	</div>
+</div>
+
+<div class="row" style="margin-bottom: 20px">
+	<div class="col-md-12">
+		<div class="page page-white">
+			<div id="graph" class="graph">
+
+    <div class="pull-right">
+
+        <select name="graph_metric1" style="width: 140px" tabindex="-1" class="select2-hidden-accessible" aria-hidden="true">
+            <option value="people">People</option>
+            <option value="clicks">Visits</option>
+            <option value="converted_people">Conv. People</option>
+            <option value="conversions">Conversions</option>
+            <option value="convrate">Conversion Rate</option>
+            <option value="cost">Cost</option>
+            <option value="cpa">CPA</option>
+            <option value="cpc">CPC</option>
+            <option value="revenue">Revenue</option>
+            <option value="rpp">RPP</option>
+            <option value="rpcp">RPCP</option>
+            <option value="profit">Profit</option>
+        </select><span class="select2 select2-container select2-container--default" dir="ltr" style="width: 140px;"><span class="selection"><span class="select2-selection select2-selection--single" role="combobox" aria-autocomplete="list" aria-haspopup="true" aria-expanded="false" tabindex="0" aria-labelledby="select2-graph_metric1-on-container"><span class="select2-selection__rendered" id="select2-graph_metric1-on-container" title="People"><span><i class="fa fa-square" style="color: #08c"></i> &nbsp;People</span></span><span class="select2-selection__arrow" role="presentation"><b role="presentation"></b></span></span></span><span class="dropdown-wrapper" aria-hidden="true"></span></span>
+
+        <select name="graph_metric2" style="width: 140px" tabindex="-1" class="select2-hidden-accessible" aria-hidden="true">
+            <option value="people">People</option>
+            <option value="clicks">Visits</option>
+            <option value="converted_people">Conv. People</option>
+            <option value="conversions">Conversions</option>
+            <option value="convrate">Conversion Rate</option>
+            <option value="cost">Cost</option>
+            <option value="cpa">CPA</option>
+            <option value="cpc">CPC</option>
+            <option value="revenue">Revenue</option>
+            <option value="rpp">RPP</option>
+            <option value="rpcp">RPCP</option>
+            <option value="profit">Profit</option>
+        </select><span class="select2 select2-container select2-container--default" dir="ltr" style="width: 140px;"><span class="selection"><span class="select2-selection select2-selection--single" role="combobox" aria-autocomplete="list" aria-haspopup="true" aria-expanded="false" tabindex="0" aria-labelledby="select2-graph_metric2-zz-container"><span class="select2-selection__rendered" id="select2-graph_metric2-zz-container" title="Conversions"><span><i class="fa fa-circle" style="color: #390"></i> &nbsp;Conversions</span></span><span class="select2-selection__arrow" role="presentation"><b role="presentation"></b></span></span></span><span class="dropdown-wrapper" aria-hidden="true"></span></span>
+
+        <!--
+        <select name="graph_units" style="width: 100px; display: none">
+            <option value="days">Days</option>
+            <option value="weeks">Weeks</option>
+            <option value="months">Months</option>
+        </select>
+        -->
+
+        <btn class="btn btn-default btn-sm graph_download" rel="tooltip" title="" style="margin-left: 7px; background: #fff; border-width: 1px" data-original-title="Download Excel CSV"><i class="fa fa-download"></i></btn>
+
+    </div>
+
+    <div class="pull-left metric1">
+        <h1 style="font-weight: normal; color: #08c; margin: 0; font-size: 30px; line-height: 1.1em">0</h1>
+        <h2 style="font-weight: normal; color: #ababab; margin: 0; letter-spacing: .15em; text-transform: uppercase; line-height: 1.5em; font-size: 12px">People</h2>
+    </div>
+
+    <div class="pull-left metric2" style="margin-left: 30px">
+        <h1 style="font-weight: normal; color: #390; margin: 0; font-size: 30px; line-height: 1.1em">0</h1>
+        <h2 style="font-weight: normal; color: #ababab; margin: 0; letter-spacing: .15em; text-transform: uppercase; line-height: 1.5em; font-size: 12px">Conversions</h2>
+    </div>
+
+    <div class="placeholder" style="clear: both; margin: 0 -10px -10px -10px" data-highcharts-chart="1"><div class="highcharts-container" id="highcharts-5" style="position: relative; overflow: hidden; width: 850px; height: 180px; text-align: left; line-height: normal; z-index: 0; -webkit-tap-highlight-color: rgba(0, 0, 0, 0);"><svg version="1.1" style="font-family:&quot;Lucida Grande&quot;, &quot;Lucida Sans Unicode&quot;, Arial, Helvetica, sans-serif;font-size:12px;" xmlns="http://www.w3.org/2000/svg" width="850" height="180"><desc>Created with Highcharts 4.2.5-modified</desc><defs><clipPath id="highcharts-6"><rect x="0" y="0" width="808" height="140"></rect></clipPath></defs><rect x="0" y="0" width="850" height="180" fill="#ffffff" class=" highcharts-background"></rect><g class="highcharts-grid"></g><g class="highcharts-grid"><path fill="none" d="M 21 140.25 L 829 140.25" stroke="#eeeeee" stroke-width="0.5" opacity="1"></path><path fill="none" d="M 21 93.25 L 829 93.25" stroke="#eeeeee" stroke-width="0.5" opacity="1"></path><path fill="none" d="M 21 47.25 L 829 47.25" stroke="#eeeeee" stroke-width="0.5" opacity="1"></path><path fill="none" d="M 21 -0.25 L 829 -0.25" stroke="#eeeeee" stroke-width="0.5" opacity="1"></path></g><g class="highcharts-grid"><path fill="none" d="M 21 140.25 L 829 140.25" stroke="#eeeeee" stroke-width="0.5" opacity="1"></path><path fill="none" d="M 21 93.25 L 829 93.25" stroke="#eeeeee" stroke-width="0.5" opacity="1"></path><path fill="none" d="M 21 47.25 L 829 47.25" stroke="#eeeeee" stroke-width="0.5" opacity="1"></path><path fill="none" d="M 21 -0.25 L 829 -0.25" stroke="#eeeeee" stroke-width="0.5" opacity="1"></path></g><g class="highcharts-axis"></g><g class="highcharts-axis"><path fill="none" d="M 35.5 140 L 35.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 91.5 140 L 91.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 148.5 140 L 148.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 205.5 140 L 205.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 261.5 140 L 261.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 318.5 140 L 318.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 374.5 140 L 374.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 431.5 140 L 431.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 488.5 140 L 488.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 544.5 140 L 544.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 601.5 140 L 601.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 658.5 140 L 658.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 714.5 140 L 714.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 771.5 140 L 771.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 827.5 140 L 827.5 150" stroke="#C0D0E0" stroke-width="1" opacity="1"></path><path fill="none" d="M 21 140.5 L 829 140.5" stroke="#C0D0E0" stroke-width="1"></path></g><g class="highcharts-axis"></g><g class="highcharts-series-group"><g class="highcharts-series highcharts-series-0 highcharts-tracker" transform="translate(21,0) scale(1 1)" style="" clip-path="url(#highcharts-6)"><rect x="12" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="40" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="68" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="97" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="125" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="153" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="181" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="210" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="238" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="266" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="295" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="323" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="351" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="380" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="408" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="436" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="465" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="493" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="521" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="550" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="578" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="606" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="634" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="663" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="691" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="719" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="748" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect><rect x="776" y="141" width="21" height="0" fill="#0088cc" rx="0" ry="0"></rect></g><g class="highcharts-markers highcharts-series-0" transform="translate(21,0) scale(1 1)" clip-path="none"></g><g class="highcharts-series highcharts-series-1" transform="translate(21,0) scale(1 1)" clip-path="url(#highcharts-6)"><path fill="#339900" d="M 21.799579537491 140 L 50.110721793973 140 L 78.421864050455 140 L 106.73300630694 140 L 135.04414856342 140 L 163.3552908199 140 L 191.66643307638 140 L 219.97757533287 140 L 248.28871758935 140 L 276.59985984583 140 L 304.91100210231 140 L 333.22214435879 140 L 361.53328661528 140 L 389.84442887176 140 L 418.15557112824 140 L 446.46671338472 140 L 474.77785564121 140 L 503.08899789769 140 L 531.40014015417 140 L 559.71128241065 140 L 588.02242466713 140 L 616.33356692362 140 L 644.6447091801 140 L 672.95585143658 140 L 701.26699369306 140 L 729.57813594954 140 L 757.88927820603 140 L 786.20042046251 140 L 786.20042046251 140 L 757.88927820603 140 L 729.57813594954 140 L 701.26699369306 140 L 672.95585143658 140 L 644.6447091801 140 L 616.33356692362 140 L 588.02242466713 140 L 559.71128241065 140 L 531.40014015417 140 L 503.08899789769 140 L 474.77785564121 140 L 446.46671338472 140 L 418.15557112824 140 L 389.84442887176 140 L 361.53328661528 140 L 333.22214435879 140 L 304.91100210231 140 L 276.59985984583 140 L 248.28871758935 140 L 219.97757533287 140 L 191.66643307638 140 L 163.3552908199 140 L 135.04414856342 140 L 106.73300630694 140 L 78.421864050455 140 L 50.110721793973 140 L 21.799579537491 140" fill-opacity="0.1"></path><path fill="none" d="M 21.799579537491 140 L 50.110721793973 140 L 78.421864050455 140 L 106.73300630694 140 L 135.04414856342 140 L 163.3552908199 140 L 191.66643307638 140 L 219.97757533287 140 L 248.28871758935 140 L 276.59985984583 140 L 304.91100210231 140 L 333.22214435879 140 L 361.53328661528 140 L 389.84442887176 140 L 418.15557112824 140 L 446.46671338472 140 L 474.77785564121 140 L 503.08899789769 140 L 531.40014015417 140 L 559.71128241065 140 L 588.02242466713 140 L 616.33356692362 140 L 644.6447091801 140 L 672.95585143658 140 L 701.26699369306 140 L 729.57813594954 140 L 757.88927820603 140 L 786.20042046251 140" stroke="#339900" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></path><path fill="none" d="M 11.799579537490999 140 L 21.799579537491 140 L 50.110721793973 140 L 78.421864050455 140 L 106.73300630694 140 L 135.04414856342 140 L 163.3552908199 140 L 191.66643307638 140 L 219.97757533287 140 L 248.28871758935 140 L 276.59985984583 140 L 304.91100210231 140 L 333.22214435879 140 L 361.53328661528 140 L 389.84442887176 140 L 418.15557112824 140 L 446.46671338472 140 L 474.77785564121 140 L 503.08899789769 140 L 531.40014015417 140 L 559.71128241065 140 L 588.02242466713 140 L 616.33356692362 140 L 644.6447091801 140 L 672.95585143658 140 L 701.26699369306 140 L 729.57813594954 140 L 757.88927820603 140 L 786.20042046251 140 L 796.20042046251 140" stroke-linejoin="round" visibility="visible" stroke="rgba(192,192,192,0.0001)" stroke-width="22.5" class=" highcharts-tracker" style=""></path></g><g class="highcharts-markers highcharts-series-1 highcharts-tracker" transform="translate(21,0) scale(1 1)" clip-path="url(#highcharts-7)" style=""><path fill="#339900" d="M 786 136.5 C 790.662 136.5 790.662 143.5 786 143.5 C 781.338 143.5 781.338 136.5 786 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 757 136.5 C 761.662 136.5 761.662 143.5 757 143.5 C 752.338 143.5 752.338 136.5 757 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 729 136.5 C 733.662 136.5 733.662 143.5 729 143.5 C 724.338 143.5 724.338 136.5 729 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 701 136.5 C 705.662 136.5 705.662 143.5 701 143.5 C 696.338 143.5 696.338 136.5 701 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 672 136.5 C 676.662 136.5 676.662 143.5 672 143.5 C 667.338 143.5 667.338 136.5 672 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 644 136.5 C 648.662 136.5 648.662 143.5 644 143.5 C 639.338 143.5 639.338 136.5 644 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 616 136.5 C 620.662 136.5 620.662 143.5 616 143.5 C 611.338 143.5 611.338 136.5 616 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 588 136.5 C 592.662 136.5 592.662 143.5 588 143.5 C 583.338 143.5 583.338 136.5 588 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 559 136.5 C 563.662 136.5 563.662 143.5 559 143.5 C 554.338 143.5 554.338 136.5 559 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 531 136.5 C 535.662 136.5 535.662 143.5 531 143.5 C 526.338 143.5 526.338 136.5 531 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 503 136.5 C 507.662 136.5 507.662 143.5 503 143.5 C 498.338 143.5 498.338 136.5 503 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 474 136.5 C 478.662 136.5 478.662 143.5 474 143.5 C 469.338 143.5 469.338 136.5 474 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 446 136.5 C 450.662 136.5 450.662 143.5 446 143.5 C 441.338 143.5 441.338 136.5 446 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 418 136.5 C 422.662 136.5 422.662 143.5 418 143.5 C 413.338 143.5 413.338 136.5 418 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 389 136.5 C 393.662 136.5 393.662 143.5 389 143.5 C 384.338 143.5 384.338 136.5 389 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 361 136.5 C 365.662 136.5 365.662 143.5 361 143.5 C 356.338 143.5 356.338 136.5 361 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 333 136.5 C 337.662 136.5 337.662 143.5 333 143.5 C 328.338 143.5 328.338 136.5 333 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 304 136.5 C 308.662 136.5 308.662 143.5 304 143.5 C 299.338 143.5 299.338 136.5 304 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 276 136.5 C 280.662 136.5 280.662 143.5 276 143.5 C 271.338 143.5 271.338 136.5 276 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 248 136.5 C 252.662 136.5 252.662 143.5 248 143.5 C 243.338 143.5 243.338 136.5 248 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 219 136.5 C 223.662 136.5 223.662 143.5 219 143.5 C 214.338 143.5 214.338 136.5 219 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 191 136.5 C 195.662 136.5 195.662 143.5 191 143.5 C 186.338 143.5 186.338 136.5 191 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 163 136.5 C 167.662 136.5 167.662 143.5 163 143.5 C 158.338 143.5 158.338 136.5 163 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 135 136.5 C 139.662 136.5 139.662 143.5 135 143.5 C 130.338 143.5 130.338 136.5 135 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 106 136.5 C 110.662 136.5 110.662 143.5 106 143.5 C 101.338 143.5 101.338 136.5 106 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 78 136.5 C 82.662 136.5 82.662 143.5 78 143.5 C 73.338 143.5 73.338 136.5 78 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 50 136.5 C 54.662 136.5 54.662 143.5 50 143.5 C 45.338 143.5 45.338 136.5 50 136.5 Z" stroke="#fff" stroke-width="1"></path><path fill="#339900" d="M 21 136.5 C 25.662 136.5 25.662 143.5 21 143.5 C 16.338 143.5 16.338 136.5 21 136.5 Z" stroke="#fff" stroke-width="1"></path></g></g><g class="highcharts-axis-labels highcharts-xaxis-labels"><text x="35.72179397337071" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb  1</tspan></text><text x="92.34407848633496" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb  3</tspan></text><text x="148.96636299929924" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb  5</tspan></text><text x="205.5886475122635" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb  7</tspan></text><text x="262.21093202522775" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb  9</tspan></text><text x="318.833216538192" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb 11</tspan></text><text x="375.45550105115626" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb 13</tspan></text><text x="432.0777855641205" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb 15</tspan></text><text x="488.7000700770848" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb 17</tspan></text><text x="545.322354590049" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb 19</tspan></text><text x="601.9446391030133" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb 21</tspan></text><text x="658.5669236159775" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb 23</tspan></text><text x="715.1892081289418" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb 25</tspan></text><text x="771.811492641906" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb 27</tspan></text><text x="821.828125" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:49px;text-overflow:clip;" text-anchor="middle" transform="translate(0,0)" y="159" opacity="1"><tspan>Feb 29</tspan></text></g><g class="highcharts-axis-labels highcharts-yaxis-labels"><text x="0" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:271px;text-overflow:clip;" text-anchor="end" transform="translate(0,0)" y="-9999">0</text><text x="17" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:271px;text-overflow:clip;" text-anchor="end" transform="translate(0,0)" y="98" opacity="1">1</text><text x="17" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:271px;text-overflow:clip;" text-anchor="end" transform="translate(0,0)" y="51" opacity="1">2</text><text x="0" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:271px;text-overflow:clip;" text-anchor="end" transform="translate(0,0)" y="-9999">3</text></g><g class="highcharts-axis-labels highcharts-yaxis-labels"><text x="0" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:271px;text-overflow:clip;" text-anchor="start" transform="translate(0,0)" y="-9999">0</text><text x="833" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:271px;text-overflow:clip;" text-anchor="start" transform="translate(0,0)" y="98" opacity="1">1</text><text x="833" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:271px;text-overflow:clip;" text-anchor="start" transform="translate(0,0)" y="51" opacity="1">2</text><text x="0" style="color:#999999;cursor:default;font-size:11px;fill:#999999;width:271px;text-overflow:clip;" text-anchor="start" transform="translate(0,0)" y="-9999">3</text></g><g class="highcharts-tooltip" style="cursor:default;padding:0;pointer-events:none;white-space:nowrap;" transform="translate(0,-9999)"><path fill="rgba(249, 249, 249, .85)" d="M 3.5 0.5 L 13.5 0.5 C 16.5 0.5 16.5 0.5 16.5 3.5 L 16.5 13.5 C 16.5 16.5 16.5 16.5 13.5 16.5 L 3.5 16.5 C 0.5 16.5 0.5 16.5 0.5 13.5 L 0.5 3.5 C 0.5 0.5 0.5 0.5 3.5 0.5"></path><text x="8" style="font-size:12px;color:#333333;fill:#333333;" y="20"></text></g></svg></div></div>
+
+</div>		</div>
+	</div>
+</div>
+
+<div class="row">
+	<div class="col-md-12">
+
+		<div class="btn-group pull-right" style="padding-left: 10px; padding-top: 6px">
+			<button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" style="background: #cdcdcd">
+	            <i class="fa fa-cog"></i> <i class="fa fa-caret-down"></i>
+			</button>
+			<ul class="dropdown-menu" id="columnselect">
+				<li class="dropdown-header">Customize Columns</li>
+			<li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_people" checked="checked" value="true"> <label>People</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_visits" checked="checked" value="true"> <label>Visits</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_cp" checked="checked" value="true"> <label>Converted People</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_conversions" checked="checked" value="true"> <label>Conversions</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_cr" checked="checked" value="true"> <label>Conversion Rate</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_cost" checked="checked" value="true"> <label>Cost</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_cpa" checked="checked" value="true"> <label>Cost Per Acquisition</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_cpc" checked="checked" value="true"> <label>Cost Per Click</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_revenue" checked="checked" value="true"> <label>Revenue</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_rpp" value="true"> <label>Revenue Per Person</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_rpcp" value="true"> <label>Revenue Per Converted Person</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_profit" checked="checked" value="true"> <label>Profit</label></div></li><li><div class="checkbox checkbox-primary"><input type="checkbox" name="columnselect_roi" value="true"> <label>Return On Investment</label></div></li><li class="dropdown-header"><button class="btn btn-sm btn-success" id="applycolumns">Apply</button></li></ul>
+        </div>
+
+		<ul class="nav nav-tabs nav-tabs-toplevel" style="border-bottom: 2px solid #ccc">
+									<li class="active"><a href="?tab=source&amp;filters[ad]=1" style="font-weight: normal">Source</a></li>
+									<li><a href="?tab=name&amp;filters[ad]=1" style="font-weight: normal">Campaign</a></li>
+									<li><a href="?tab=medium&amp;filters[ad]=1" style="font-weight: normal">Medium</a></li>
+									<li><a href="?tab=content&amp;filters[ad]=1" style="font-weight: normal">Content</a></li>
+									<li><a href="?tab=url&amp;filters[ad]=1" style="font-weight: normal">Landing Page</a></li>
+									<li><a href="?tab=billed_keyword&amp;filters[ad]=1" style="font-weight: normal">Keyword</a></li>
+									<li><a href="?tab=searched_keyword&amp;filters[ad]=1" style="font-weight: normal">Search</a></li>
+									<li><a href="?tab=referring_domain&amp;filters[ad]=1" style="font-weight: normal">Domain</a></li>
+									<li><a href="?tab=referrer&amp;filters[ad]=1" style="font-weight: normal">Referrer</a></li>
+									<li><a href="?tab=device&amp;filters[ad]=1" style="font-weight: normal">Device</a></li>
+									<li><a href="?tab=country&amp;filters[ad]=1" style="font-weight: normal">Country</a></li>
+									<li><a href="?tab=day&amp;filters[ad]=1" style="font-weight: normal">Day</a></li>
+									<li><a href="?tab=hour&amp;filters[ad]=1" style="font-weight: normal">Hour</a></li>
+					</ul>
+
+		<div class="page page-white" style="padding: 0">
+
+			<table id="report" class="table-striped">
+				<thead>
+					<tr><th title="" style="text-align: left; width: 100%" class="header" data-original-title="Click a link to add a filter">Source</th><th title="" class="header headerSortUp" data-original-title="Number of unique people">People</th><th title="" class="header" data-original-title="Number of site visits">Visits</th><th title="" class="header" data-original-title="Converted People: Number of unique people that reached one of your goals">CP</th><th title="" class="header" data-original-title="Conversions: Number of times one of your goals was reached">Conv.</th><th title="" class="header" data-original-title="Conversion Rate: Percentage of people that reached one of your goals">CR</th><th title="" class="header" data-original-title="Total PPC cost from these ad clicks">Cost</th><th title="" class="header" data-original-title="Cost Per Acquisition: Average cost to acquire one goal conversion">CPA</th><th title="" class="hidden-sm hidden-xs hidden-md header" data-original-title="Cost Per Click (Visit)">CPC</th><th title="" class="header" data-original-title="Revenue from goal conversions">Revenue</th><th title="" class="header" data-original-title="Revenue minus cost">Profit</th></tr>
+				</thead>
+				<tbody>
+						<td colspan="11" style="text-align: center">
+							<div class="message">
+																	There is no data to display for the selected date range. 
+
+																		Have you installed the 
+									<a href="/code/webshop">Improvely Tracking Code</a>									on your site, and updated your ads with 
+									<a href="/tools/webshop/link_builder">tracking links</a>?
+									
+															</div>
+						</td>
+					</tbody>
+				<tfoot><tr><td style="text-align: left"><b>Totals:</b></td><td>0</td><td>0</td><td>0</td><td>0</td><td>0%</td><td>$0.00</td><td>$0.00</td><td class="hidden-sm hidden-xs hidden-md">$0.00</td><td>$0.00</td><td>$0.00</td></tr></tfoot>
+			</table>
+
+		</div>
+
+		<a href="/api/report.xls?type=ad&amp;imt=1&amp;utm_campaign=Date+Range+Picker&amp;utm_source=Site+Ads&amp;utm_medium=Banner&amp;utm_content=Blog+Demo+Image"><button class="btn btn-primary" style="margin-top: 20px"><i class="fa fa-download"></i> &nbsp; Download Excel CSV</button></a>
+	</div>
+</div>
+
+<script type="text/javascript">
+
+var updates = 0;
+var loading = $('#report tbody .loading').hide().clone();
+var nodata = $('#report tbody .nodata').hide().clone();
+var timeout = $('#report tbody .timeout').hide().clone();
+
+$(document).ready(function() {
+
+	var html = '<th title="Click a link to add a filter" style="text-align: left; width: 100%">Source</th>';
+	if (userprefs.columns.includes('people'))
+		html += '<th title="Number of unique people">People</th>';
+	if (userprefs.columns.includes('visits'))
+		html += '<th title="Number of site visits">Visits</th>';
+	if (userprefs.columns.includes('cp'))
+		html += '<th title="Converted People: Number of unique people that reached one of your goals">CP</th>';
+	if (userprefs.columns.includes('conversions'))
+		html += '<th title="Conversions: Number of times one of your goals was reached">Conv.</th>';
+	if (userprefs.columns.includes('cr'))
+		html += '<th title="Conversion Rate: Percentage of people that reached one of your goals">CR</th>';
+	if (userprefs.columns.includes('cost'))
+		html += '<th title="Total PPC cost from these ad clicks">Cost</th>';
+	if (userprefs.columns.includes('cpa'))
+		html += '<th title="Cost Per Acquisition: Average cost to acquire one goal conversion">CPA</th>';
+	if (userprefs.columns.includes('cpc'))
+		html += '<th title="Cost Per Click (Visit)" class="hidden-sm hidden-xs hidden-md">CPC</th>';
+	if (userprefs.columns.includes('revenue'))
+		html += '<th title="Revenue from goal conversions">Revenue</th>';
+	if (userprefs.columns.includes('rpp'))
+		html += '<th title="Revenue Per Person" class="hidden-sm hidden-xs hidden-md">RPP</th>';
+	if (userprefs.columns.includes('rpcp'))
+		html += '<th title="Revenue Per Converted Person" class="hidden-sm hidden-xs hidden-md">RPCP</th>';
+	if (userprefs.columns.includes('profit'))
+		html += '<th title="Revenue minus cost">Profit</th>';
+	if (userprefs.columns.includes('roi'))
+		html += '<th title="Return On Investment">ROI</th>';
+	$('#report thead tr').html(html);
+
+	getTable();
+	getGraph();
+});
+
+function getGraph(start, end) {
+
+	$('#graph .placeholder').html('<div style="padding: 40px 0 0 0; text-align: center; font-size: 18px">Loading...</div>');
+	$('#graph h1, #graph h2').html('&nbsp;');
+	$('#graph .metric1 h1').html('<i class="fa fa-spinner fa-spin"></i>');
+
+	var jsonurl = '/api/graph.json?filters[ad]=1';
+	jsonurl += '&filters[goal]=' + encodeURIComponent(userprefs.goal);
+	jsonurl += '&metric1=' + userprefs.metric1 + '&metric2=' + userprefs.metric2 + '&units=' + userprefs.units;
+
+	if (typeof location.search == 'string' && location.search.length > 0)
+		jsonurl += '&' + location.search.substring(1);
+
+	if (typeof start != 'undefined' && typeof end != 'undefined' && start != null & end != null)
+		jsonurl += '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end);
+
+	$.getJSON(jsonurl, function(data) {
+		if (data.length != 0) imGraph('graph', data);
+	});
+
+}
+
+function downloadGraph() {
+	var dlurl = '/api/graph.xls?filters[ad]=1';
+	dlurl += '&filters[goal]=' + encodeURIComponent(userprefs.goal);
+	dlurl += '&metric1=' + userprefs.metric1 + '&metric2=' + userprefs.metric2;
+	if (typeof location.search == 'string' && location.search.length > 0)
+		dlurl += '&' + location.search.substring(1);
+	window.location = dlurl;
+}
+
+function getTable(start, end) {
+
+	$('#report tbody').html(loading.html());
+	$('#report tfoot').html('');
+
+	var jsonurl = '/api/report.json';
+	if (typeof location.search == 'string' && location.search.length > 0)
+		jsonurl += '?' + location.search.substring(1) + '&type=ad&filters[goal]=' + encodeURIComponent(userprefs.goal);
+	else
+		jsonurl += '?type=ad&filters[goal]=' + encodeURIComponent(userprefs.goal);
+
+	if (typeof start != 'undefined' && typeof end != 'undefined' && start != null && end != null)
+		jsonurl += '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end);
+
+	$.post(jsonurl, function(data) {
+
+		var html = '', clicks = 0, people = 0, conversions = 0, converted_people = 0, revenue = 0, cost = 0;
+		
+		if (data.length == 0) {
+			$('#report tbody').html(nodata.html());
+		} else {
+
+			for (var row in data) {
+
+				var label = data[row]['label'];
+				if (data[row]['label'] == null || data[row]['label'] == '') {
+					label = '[ No Source ]';				}
+
+				
+				html += '<tr>';
+
+								var url = '?tab=source&filters[ad]=1&filters[source]=' + encodeURIComponent(data[row]['label']);
+
+				html += '<td style="text-align: left" class="ellipsis">';
+
+				
+									if (label.length > 40 && (label.substr(0, 7) == 'http://' || label.substr(0,8) == 'https://'))
+						html += '<a href="' + url + '" title="' + label + '">' + label + '</a>';
+					else
+						html += '<a href="' + url + '">' + label + '</a>';
+				
+				html += '</td>';
+
+				if (userprefs.columns.includes('people')) {
+										var url = '/reports/webshop/people?from=ad&filters[ad]=1&filters[source]=' + encodeURIComponent(data[row]['label']);
+					html += '<td><a href="' + url + '">' + add_commas(data[row]['people']) + '</a></td>';
+				}
+
+				if (userprefs.columns.includes('visits')) {
+										var url = '/reports/webshop/clicks?from=ad&filters[ad]=1&filters[source]=' + encodeURIComponent(data[row]['label']);
+					html += '<td><a href="' + url + '">' + add_commas(data[row]['clicks']) + '</a></td>';
+				}
+
+				if (userprefs.columns.includes('cp')) {
+										var url = '/reports/webshop/conversions?from=ad&filters[ad]=1&filters[source]=' + encodeURIComponent(data[row]['label']) + '&goal=' + encodeURIComponent(userprefs.goal);
+					html += '<td><a href="' + url + '">' + add_commas(data[row]['converted_people']) + '</a></td>';
+				}
+
+				if (userprefs.columns.includes('conversions')) {
+										var url = '/reports/webshop/conversions?from=ad&filters[ad]=1&filters[source]=' + encodeURIComponent(data[row]['label']) + '&goal=' + encodeURIComponent(userprefs.goal);
+					html += '<td><a href="' + url + '">' + add_commas(data[row]['conversions']) + '</a></td>';
+				}
+
+				if (userprefs.columns.includes('cr'))
+					html += '<td>' + format_rate(data[row]['converted_people'] / data[row]['people']) + '</td>';
+				if (userprefs.columns.includes('cost'))
+					html += '<td>' + format_money(data[row]['cost']) + '</td>';
+				if (userprefs.columns.includes('cpa'))
+					html += '<td>' + format_money(data[row]['cost'] / data[row]['conversions']) + '</td>';
+				if (userprefs.columns.includes('cpc'))
+					html += '<td class="hidden-sm hidden-xs hidden-md">' + format_money(data[row]['cost'] / data[row]['clicks']) + '</td>';
+				if (userprefs.columns.includes('revenue'))
+					html += '<td>' + format_money(data[row]['revenue']) + '</td>';
+				if (userprefs.columns.includes('rpp'))
+					html += '<td class="hidden-sm hidden-xs hidden-md">' + format_money(data[row]['revenue'] / data[row]['people']) + '</td>';
+				if (userprefs.columns.includes('rpcp'))
+					html += '<td class="hidden-sm hidden-xs hidden-md">' + format_money(data[row]['revenue'] / data[row]['converted_people']) + '</td>';
+				if (userprefs.columns.includes('profit'))
+					html += '<td>' + format_money(data[row]['revenue'] - data[row]['cost']) + '</td>';
+				if (userprefs.columns.includes('roi'))
+					html += '<td>' + format_rate((data[row]['revenue'] - data[row]['cost']) / data[row]['cost']) + '</td>';
+
+				html += '</tr>';
+
+				clicks += parseInt(data[row]['clicks']);
+				people += parseInt(data[row]['people']);
+				converted_people += parseInt(data[row]['converted_people']);
+				conversions += parseInt(data[row]['conversions']);
+				revenue += parseFloat(data[row]['revenue']);
+				cost += parseFloat(data[row]['cost']);
+
+			}
+
+			$('#report tbody').html(html);
+
+							if (updates == 0) {
+				    $("#report").tablesorter({ 
+				        textExtraction: function(node) { 
+				        	var decoded = $('<div/>').html(currency_symbol).text();
+				            return node.innerHTML.replace(/<\/?[^>]+>/gi, '').replace(',', '').replace(currency_symbol, '').replace(decoded, '');
+				        },
+				        sortList: [[1,1]]
+				    }); 
+				} else {
+					$('#report').trigger("update");
+					$('#report').trigger("sorton",[[[1,1]]]);
+				}
+			
+			updates++;
+
+		}
+
+		html = '<tr>';
+		html += '<td style="text-align: left"><b>Totals:</b></td>';
+		if (userprefs.columns.includes('people'))
+			html += '<td>' + add_commas(people) + '</td>';
+		if (userprefs.columns.includes('visits'))
+			html += '<td>' + add_commas(clicks) + '</td>';
+		if (userprefs.columns.includes('cp'))	
+			html += '<td>' + add_commas(converted_people) + '</td>';
+		if (userprefs.columns.includes('conversions'))
+			html += '<td>' + add_commas(conversions) + '</td>';
+		if (userprefs.columns.includes('cr'))
+			html += '<td>' + format_rate(converted_people / people) + '</td>';
+		if (userprefs.columns.includes('cost'))
+			html += '<td>' + format_money(cost) + '</td>';
+		if (userprefs.columns.includes('cpa'))
+			html += '<td>' + format_money(cost / conversions) + '</td>';
+		if (userprefs.columns.includes('cpc'))
+			html += '<td class="hidden-sm hidden-xs hidden-md">' + format_money(cost / clicks) + '</td>';
+		if (userprefs.columns.includes('revenue'))
+			html += '<td>' + format_money(revenue) + '</td>';
+		if (userprefs.columns.includes('rpp'))
+			html += '<td class="hidden-sm hidden-xs hidden-md">' + format_money(revenue / people) + '</td>';
+		if (userprefs.columns.includes('rpcp'))
+			html += '<td class="hidden-sm hidden-xs hidden-md">' + format_money(revenue / converted_people) + '</td>';
+		if (userprefs.columns.includes('profit'))
+			html += '<td>' + format_money(revenue - cost) + '</td>';
+		if (userprefs.columns.includes('roi'))
+			html += '<td>' + format_rate((revenue - cost) / cost) + '</td>';
+
+		html += '</tr>';
+		$('#report tfoot').html(html);
+
+	}, 'json').fail(function() {
+		$('#report tbody').html(timeout.html());
+	});
+
+}
+
+</script>
+
+      </div>
+
+      <div style="margin: 0 -20px">
+  
+      <div class="afs_ads adsbox ad_box" style="color: #ccc; font-size: 10px; text-align: right; padding: 5px 0"><!-- ip-10-0-0-150.ec2.internal --></div>
+
+      
+        <div style="margin-top: 30px; background: #f5f5f5; font-size: 12px; color: #999">
+
+          <table style="width: 100%">
+            <tbody><tr>
+              <td style="white-space: nowrap; vertical-align: middle; padding: 20px 30px">
+                <a href="https://www.improvely.com/"><img alt="Improvely Logo" style="width: 100px" src="/images/website/logo-blue-on-transparent.png"></a>              </td>
+              <td style="width: 100%; vertical-align: middle; padding: 20px 0" id="feedback" class="hidden-xs">
+
+                <form action="" class="form-horizontal" method="post">
+                  <table style="width: 100%">
+                    <tbody><tr>
+                      <td style="width: 100%">
+                        <textarea name="feedback" class="form-control"></textarea>
+                      </td>
+                      <td style="white-space: nowrap; vertical-align: middle; padding-left: 15px">
+                        <button type="submit" class="btn btn-success" style="width: 100%">Send feedback</button>
+                      </td>
+                    </tr>
+                  </tbody></table>
+                </form>
+
+              </td>
+              <td style="white-space: nowrap; vertical-align: middle; padding: 20px 30px">
+
+                Copyright © 2025 <a href="https://www.awio.com/">Awio Web Services LLC</a>                <br>
+                <a href="https://www.improvely.com/terms">Terms of Service</a> &nbsp;·&nbsp; <a href="https://www.improvely.com/docs">Knowledge Base</a> &nbsp;·&nbsp; <a href="mailto:hello@improvely.com">Contact Us</a>
+
+              </td>
+            </tr>
+          </tbody></table>
+
+        </div>
+
+      
+      </div>
+
+  </div>
+            
+   
+  
+  
+
+<div class="daterangepicker ltr show-ranges opensleft show-calendar" style="display: none; top: 168px; right: 34.9609px; left: auto;"><div class="ranges"><ul><li data-range-key="Today">Today</li><li data-range-key="Yesterday">Yesterday</li><li data-range-key="Last 7 Days">Last 7 Days</li><li data-range-key="Last 30 Days" class="">Last 30 Days</li><li data-range-key="This Month">This Month</li><li data-range-key="Last Month">Last Month</li><li data-range-key="Custom Range" class="active">Custom Range</li></ul></div><div class="calendar left"><div class="calendar-table"><table class="table-condensed"><thead><tr><th class="prev available" data-original-title="" title=""><span></span></th><th colspan="5" class="month" data-original-title="" title="">Feb 2024</th><th data-original-title="" title=""></th></tr><tr><th data-original-title="" title="">Su</th><th data-original-title="" title="">Mo</th><th data-original-title="" title="">Tu</th><th data-original-title="" title="">We</th><th data-original-title="" title="">Th</th><th data-original-title="" title="">Fr</th><th data-original-title="" title="">Sa</th></tr></thead><tbody><tr><td class="weekend off available" data-title="r0c0">28</td><td class="off available" data-title="r0c1">29</td><td class="off available" data-title="r0c2">30</td><td class="off available" data-title="r0c3">31</td><td class="active start-date available" data-title="r0c4">1</td><td class="in-range available" data-title="r0c5">2</td><td class="weekend in-range available" data-title="r0c6">3</td></tr><tr><td class="weekend in-range available" data-title="r1c0">4</td><td class="in-range available" data-title="r1c1">5</td><td class="in-range available" data-title="r1c2">6</td><td class="in-range available" data-title="r1c3">7</td><td class="in-range available" data-title="r1c4">8</td><td class="in-range available" data-title="r1c5">9</td><td class="weekend in-range available" data-title="r1c6">10</td></tr><tr><td class="weekend in-range available" data-title="r2c0">11</td><td class="in-range available" data-title="r2c1">12</td><td class="in-range available" data-title="r2c2">13</td><td class="in-range available" data-title="r2c3">14</td><td class="in-range available" data-title="r2c4">15</td><td class="in-range available" data-title="r2c5">16</td><td class="weekend in-range available" data-title="r2c6">17</td></tr><tr><td class="weekend in-range available" data-title="r3c0">18</td><td class="in-range available" data-title="r3c1">19</td><td class="in-range available" data-title="r3c2">20</td><td class="in-range available" data-title="r3c3">21</td><td class="in-range available" data-title="r3c4">22</td><td class="in-range available" data-title="r3c5">23</td><td class="weekend in-range available" data-title="r3c6">24</td></tr><tr><td class="weekend in-range available" data-title="r4c0">25</td><td class="in-range available" data-title="r4c1">26</td><td class="in-range available" data-title="r4c2">27</td><td class="active end-date in-range available" data-title="r4c3">28</td><td class="available" data-title="r4c4">29</td><td class="off available" data-title="r4c5">1</td><td class="weekend off available" data-title="r4c6">2</td></tr><tr><td class="weekend off available" data-title="r5c0">3</td><td class="off available" data-title="r5c1">4</td><td class="off available" data-title="r5c2">5</td><td class="off available" data-title="r5c3">6</td><td class="off available" data-title="r5c4">7</td><td class="off available" data-title="r5c5">8</td><td class="weekend off available" data-title="r5c6">9</td></tr></tbody></table></div><div class="calendar-time" style="display: none;"></div></div><div class="calendar right"><div class="calendar-table"><table class="table-condensed"><thead><tr><th data-original-title="" title=""></th><th colspan="5" class="month" data-original-title="" title="">Mar 2024</th><th class="next available" data-original-title="" title=""><span></span></th></tr><tr><th data-original-title="" title="">Su</th><th data-original-title="" title="">Mo</th><th data-original-title="" title="">Tu</th><th data-original-title="" title="">We</th><th data-original-title="" title="">Th</th><th data-original-title="" title="">Fr</th><th data-original-title="" title="">Sa</th></tr></thead><tbody><tr><td class="weekend off in-range available" data-title="r0c0">25</td><td class="off in-range available" data-title="r0c1">26</td><td class="off in-range available" data-title="r0c2">27</td><td class="off active end-date in-range available" data-title="r0c3">28</td><td class="off available" data-title="r0c4">29</td><td class="available" data-title="r0c5">1</td><td class="weekend available" data-title="r0c6">2</td></tr><tr><td class="weekend available" data-title="r1c0">3</td><td class="available" data-title="r1c1">4</td><td class="available" data-title="r1c2">5</td><td class="available" data-title="r1c3">6</td><td class="available" data-title="r1c4">7</td><td class="available" data-title="r1c5">8</td><td class="weekend available" data-title="r1c6">9</td></tr><tr><td class="weekend available" data-title="r2c0">10</td><td class="available" data-title="r2c1">11</td><td class="available" data-title="r2c2">12</td><td class="available" data-title="r2c3">13</td><td class="available" data-title="r2c4">14</td><td class="available" data-title="r2c5">15</td><td class="weekend available" data-title="r2c6">16</td></tr><tr><td class="weekend available" data-title="r3c0">17</td><td class="available" data-title="r3c1">18</td><td class="available" data-title="r3c2">19</td><td class="available" data-title="r3c3">20</td><td class="available" data-title="r3c4">21</td><td class="available" data-title="r3c5">22</td><td class="weekend available" data-title="r3c6">23</td></tr><tr><td class="weekend available" data-title="r4c0">24</td><td class="available" data-title="r4c1">25</td><td class="available" data-title="r4c2">26</td><td class="available" data-title="r4c3">27</td><td class="available" data-title="r4c4">28</td><td class="available" data-title="r4c5">29</td><td class="weekend available" data-title="r4c6">30</td></tr><tr><td class="weekend available" data-title="r5c0">31</td><td class="off available" data-title="r5c1">1</td><td class="off available" data-title="r5c2">2</td><td class="off available" data-title="r5c3">3</td><td class="off available" data-title="r5c4">4</td><td class="off available" data-title="r5c5">5</td><td class="weekend off available" data-title="r5c6">6</td></tr></tbody></table></div><div class="calendar-time" style="display: none;"></div></div><div class="drp-buttons"><span class="drp-selected">2024-02-01 - 2024-02-28</span><button class="cancelBtn btn btn-sm btn-default" type="button">Cancel</button><button class="applyBtn btn btn-sm btn-primary" type="button">Apply</button> </div></div></body></html>

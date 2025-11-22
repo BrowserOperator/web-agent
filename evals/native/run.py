@@ -57,13 +57,15 @@ class EvaluationRunner:
             provider=judge_config['provider'],
             model_name=judge_config['model_name'],
             api_key=judge_config['api_key'],
-            temperature=judge_config.get('temperature')
+            temperature=judge_config.get('temperature'),
+            endpoint=judge_config.get('endpoint')
         )
         self.vision_judge = VisionJudge(
             provider=judge_config['provider'],
             model_name=judge_config['model_name'],
             api_key=judge_config['api_key'],
-            temperature=judge_config.get('temperature')
+            temperature=judge_config.get('temperature'),
+            endpoint=judge_config.get('endpoint')
         )
 
         # Get nested model config for API requests
@@ -257,29 +259,72 @@ class EvaluationRunner:
 
     def _resolve_eval_path(self, eval_path: str) -> Path:
         """
-        Resolve evaluation path to absolute path.
+        Resolve evaluation path to absolute YAML file path.
+        Supports both direct file paths and directory paths.
 
         Args:
-            eval_path: Relative or absolute path to eval file
+            eval_path: Relative or absolute path to eval file or directory
 
         Returns:
-            Absolute Path object
+            Absolute Path to YAML file
+
+        Examples:
+            # Direct file paths (backward compatible)
+            _resolve_eval_path("action-agent/a11y-001.yaml")
+            _resolve_eval_path("test-simple/math-001.yaml")
+
+            # Directory paths (new format)
+            _resolve_eval_path("js-verifier/action/dropdown")
+            _resolve_eval_path("js-verifier/action/dropdown/")
         """
         path = Path(eval_path)
 
-        # If absolute and exists, use it
-        if path.is_absolute() and path.exists():
-            return path
+        # If absolute path
+        if path.is_absolute():
+            if path.is_file() and path.exists():
+                return path
+            elif path.is_dir() and path.exists():
+                # Try to find task.yaml in directory
+                task_yaml = path / 'task.yaml'
+                if task_yaml.exists():
+                    return task_yaml
+                raise FileNotFoundError(
+                    f"Directory exists but no task.yaml found: {path}\n"
+                    f"Expected: {task_yaml}"
+                )
+            else:
+                raise FileNotFoundError(f"Path not found: {path}")
 
         # Try relative to data directory
         data_dir = Path(__file__).parent / 'data'
         candidate = data_dir / eval_path
-        if candidate.exists():
+
+        # Check if it's a file
+        if candidate.is_file() and candidate.exists():
             return candidate
 
+        # Check if it's a directory with task.yaml
+        if candidate.is_dir() and candidate.exists():
+            task_yaml = candidate / 'task.yaml'
+            if task_yaml.exists():
+                return task_yaml
+            raise FileNotFoundError(
+                f"Directory exists but no task.yaml found: {candidate}\n"
+                f"Expected: {task_yaml}"
+            )
+
         # Try as-is (relative to current directory)
-        if path.exists():
+        if path.is_file() and path.exists():
             return path.resolve()
+
+        if path.is_dir() and path.exists():
+            task_yaml = path / 'task.yaml'
+            if task_yaml.exists():
+                return task_yaml.resolve()
+            raise FileNotFoundError(
+                f"Directory exists but no task.yaml found: {path}\n"
+                f"Expected: {task_yaml}"
+            )
 
         # Return the data_dir candidate (will fail with proper error message)
         return candidate
@@ -339,32 +384,66 @@ class EvaluationRunner:
                 api_response['tab_id']
             )
 
-        # Judge the response
-        criteria = evaluation.get_validation_criteria()
-
-        # Check if visual verification is required
-        if evaluation.requires_vision_judge() and screenshot_path:
-            # Use VisionJudge with screenshot
-            screenshot_data_url = self._load_screenshot_as_data_url(screenshot_path)
-            verification_prompts = evaluation.get_verification_prompts()
+        # Judge the response based on validation type
+        if evaluation.validation_type == 'js-eval':
+            # Use JavaScript evaluation for validation
+            if not api_response.get('client_id') or not api_response.get('tab_id'):
+                return {
+                    'eval_id': evaluation.id,
+                    'eval_name': evaluation.name,
+                    'category': evaluation.category,
+                    'passed': False,
+                    'score': 0.0,
+                    'reasoning': "JavaScript validation requires client_id and tab_id in response metadata",
+                    'execution_time_ms': api_response['execution_time_ms'],
+                    'error': "Missing metadata for JavaScript execution",
+                    'screenshot_path': screenshot_path
+                }
 
             if self.verbose:
-                print(f"  Using Vision Judge with screenshot")
+                print(f"  Using JavaScript Eval Judge")
 
-            judge_result = self.vision_judge.judge(
-                input_prompt=input_message,
-                response=api_response['response'],
-                criteria=criteria,
-                screenshots={"after": screenshot_data_url} if screenshot_data_url else None,
-                verification_prompts=verification_prompts if verification_prompts else None
+            # Import JSEvalJudge here to avoid circular imports
+            from lib.judge import JSEvalJudge
+
+            js_eval_judge = JSEvalJudge(
+                api_client=self.api_client,
+                client_id=api_response['client_id'],
+                tab_id=api_response['tab_id']
+            )
+
+            judge_result = js_eval_judge.judge(
+                script=evaluation.get_js_eval_script(),
+                expected_result=evaluation.get_js_eval_expected(),
+                timeout=evaluation.get_js_eval_timeout()
             )
         else:
-            # Use standard LLMJudge
-            judge_result = self.judge.judge(
-                input_prompt=input_message,
-                response=api_response['response'],
-                criteria=criteria
-            )
+            # Original LLM-based validation
+            criteria = evaluation.get_validation_criteria()
+
+            # Check if visual verification is required
+            if evaluation.requires_vision_judge() and screenshot_path:
+                # Use VisionJudge with screenshot
+                screenshot_data_url = self._load_screenshot_as_data_url(screenshot_path)
+                verification_prompts = evaluation.get_verification_prompts()
+
+                if self.verbose:
+                    print(f"  Using Vision Judge with screenshot")
+
+                judge_result = self.vision_judge.judge(
+                    input_prompt=input_message,
+                    response=api_response['response'],
+                    criteria=criteria,
+                    screenshots={"after": screenshot_data_url} if screenshot_data_url else None,
+                    verification_prompts=verification_prompts if verification_prompts else None
+                )
+            else:
+                # Use standard LLMJudge
+                judge_result = self.judge.judge(
+                    input_prompt=input_message,
+                    response=api_response['response'],
+                    criteria=criteria
+                )
 
         # Verbose: print reasoning
         if self.verbose:
@@ -525,18 +604,24 @@ def main():
     parser = argparse.ArgumentParser(
         description="Universal evaluation runner for browser-agent evals",
         epilog="""
+NOTE: Run this script from the evals/native/ directory (where the data/ folder exists)
+
 Examples:
-  # Run specific eval by path
-  python3 run.py --path action-agent/a11y-001.yaml
+  # Run specific eval by file path
+  cd native && python3 run.py --path action-agent/a11y-001.yaml
+
+  # Run specific eval by directory path (NEW: auto-detects task.yaml)
+  cd native && python3 run.py --path js-verifier/action/dropdown
+  cd native && python3 run.py --path js-verifier/action/dropdown/ --verbose
 
   # Run all evals in a category
-  python3 run.py --category action-agent --limit 5
+  cd native && python3 run.py --category action-agent --limit 5
 
   # Run specific evals by ID
-  python3 run.py --category action-agent --eval-ids a11y-001 a11y-002
+  cd native && python3 run.py --category action-agent --eval-ids a11y-001 a11y-002
 
   # Run all evals across all categories
-  python3 run.py --all
+  cd native && python3 run.py --all
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -546,7 +631,7 @@ Examples:
     mode_group.add_argument(
         '--path',
         type=str,
-        help='Path to specific evaluation YAML file (e.g., action-agent/a11y-001.yaml)'
+        help='Path to eval file or directory (e.g., action-agent/a11y-001.yaml or js-verifier/action/dropdown)'
     )
     mode_group.add_argument(
         '--category',

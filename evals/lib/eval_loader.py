@@ -146,6 +146,80 @@ class Evaluation:
 
         return visual_config.get('prompts', [])
 
+    def get_js_eval_config(self) -> Optional[Dict[str, Any]]:
+        """
+        Get js-eval configuration.
+
+        Returns:
+            JS-eval config dict or None if not js-eval type
+        """
+        if self.validation_type != 'js-eval':
+            return None
+
+        return self.validation.get('js-eval', {})
+
+    def get_js_eval_script(self) -> str:
+        """
+        Get JavaScript script to execute for validation.
+
+        Supports both inline scripts and external .js files.
+        If script value ends with .js, it's treated as a file reference
+        relative to the YAML file location.
+
+        Returns:
+            JavaScript code string
+        """
+        js_eval_config = self.get_js_eval_config()
+        if not js_eval_config:
+            return ""
+
+        script_value = js_eval_config.get('script', '')
+        if not script_value:
+            return ""
+
+        # Check if it's a file reference (ends with .js)
+        if script_value.endswith('.js'):
+            # Load from external file (relative to YAML file)
+            script_path = self.file_path.parent / script_value
+
+            if not script_path.exists():
+                raise FileNotFoundError(
+                    f"Validation script not found: {script_path}\n"
+                    f"Referenced from: {self.file_path}"
+                )
+
+            with open(script_path, 'r') as f:
+                return f.read()
+
+        # Otherwise, treat as inline code (backward compatible)
+        return script_value
+
+    def get_js_eval_expected(self) -> Any:
+        """
+        Get expected result for JavaScript validation.
+
+        Returns:
+            Expected result (can be any type)
+        """
+        js_eval_config = self.get_js_eval_config()
+        if not js_eval_config:
+            return None
+
+        return js_eval_config.get('expected_result')
+
+    def get_js_eval_timeout(self) -> int:
+        """
+        Get timeout for JavaScript execution.
+
+        Returns:
+            Timeout in milliseconds (default: 5000)
+        """
+        js_eval_config = self.get_js_eval_config()
+        if not js_eval_config:
+            return 5000
+
+        return js_eval_config.get('timeout', 5000)
+
     def get_target_url(self) -> Optional[str]:
         """
         Get the target URL for this evaluation.

@@ -91,20 +91,25 @@ web-agent/
 │           │   └── nginx-devtools.conf
 │           └── services-cloudrun/  # Service configs (cloud run)
 │               └── browser-agent-server.conf
-├── browser-agent-server/
-│   └── nodejs/                 # Browser agent server source
-│       ├── src/
-│       │   ├── api-server.js   # HTTP REST API
-│       │   ├── evaluation-server.js  # WebSocket + CDP
-│       │   └── lib/            # BrowserAgentServer, judges
-│       ├── start.js            # Server entrypoint
-│       └── package.json
+├── submodules/                 # Git submodules
+│   ├── browser-operator-core/  # Browser Operator DevTools + Agent Server
+│   │   ├── agent-server/       # Agent server (HTTP/WebSocket API)
+│   │   │   └── nodejs/         # Node.js implementation
+│   │   │       ├── src/
+│   │   │       │   ├── api-server.js   # HTTP REST API
+│   │   │       │   ├── client-manager.js  # Client management
+│   │   │       │   └── lib/    # Core libraries
+│   │   │       ├── start.js    # Server entrypoint
+│   │   │       └── package.json
+│   │   └── front_end/          # DevTools frontend source
+│   ├── kernel-images/          # Base browser environment
+│   └── webarena/               # WebArena benchmark (for webarena evals)
 ├── evals/                      # Evaluation framework
 │   ├── .env                    # API keys (gitignored, copy from .env.example)
 │   ├── config.yml              # Global eval configuration
 │   ├── lib/                    # Shared evaluation library
 │   │   ├── eval_loader.py      # YAML evaluation loader
-│   │   ├── api_client.py       # HTTP client for browser-agent-server
+│   │   ├── api_client.py       # HTTP client for agent server
 │   │   ├── judge.py            # LLMJudge, VisionJudge, SimpleJudge
 │   │   ├── webarena_adapter.py # WebArena task adapter
 │   │   └── webarena_evaluators.py # WebArena evaluators
@@ -130,7 +135,7 @@ web-agent/
 ### deployments/local/Dockerfile
 Multi-stage build that:
 1. Copies pre-built DevTools from `browser-operator-devtools:latest`
-2. Builds browser-agent-server with `npm install`
+2. Builds agent server from `submodules/browser-operator-core/agent-server/nodejs` with `npm install`
 3. Builds kernel-images Go API
 4. Builds WebRTC client
 5. Compiles custom Xorg drivers
@@ -145,9 +150,10 @@ Multi-stage build that:
 ### deployments/local/docker-compose.yml
 Configures container with:
 - Port mappings for all services (8000-8082, 9222, 444)
-- Volume mounts: recordings, chromium-data, browser-agent-server code
+- Volume mounts: recordings, chromium-data
 - tmpfs: `/dev/shm` and `/tmp` (prevents lock file persistence)
 - Environment: `CHROMIUM_FLAGS` with custom DevTools frontend
+- Agent server code is baked into the image (not volume-mounted)
 
 **Recent fixes:**
 - Added missing ports 8000, 8001, 8081, 8082
@@ -163,11 +169,12 @@ This prevents "profile in use" and "display already active" errors.
 
 Available in all deployment types: `local/`, `local-webarena/`, `cloudrun/`
 
-### browser-agent-server/nodejs/src/api-server.js
+### submodules/browser-operator-core/agent-server/nodejs/src/api-server.js
 HTTP REST API with endpoints:
 - `POST /v1/responses` - Execute browser automation tasks
 - `POST /page/content` - Get page HTML/text content
 - `POST /page/screenshot` - Capture screenshots
+- `POST /page/execute` - Execute JavaScript in page context
 - `GET /status` - Health check
 
 ### deployments/commons/supervisor/services/browser-agent-server.conf
@@ -252,12 +259,12 @@ Supervisor configuration files:
 - Check logs: `docker logs kernel-browser-extended | grep CDP`
 
 ### 4. Module Not Found Errors
-**Symptom:** "Cannot find module 'js-yaml'" or "Cannot find module 'BrowserAgentServer.js'"
+**Symptom:** "Cannot find module 'js-yaml'" or missing dependencies
 
 **Solution:**
-- Ensure `browser-agent-server/nodejs/` has all dependencies
-- Run `cd browser-agent-server/nodejs && npm install`
-- Browser-agent-server code is in `browser-agent-server/nodejs/`
+- Agent server code comes from `submodules/browser-operator-core/agent-server/nodejs/`
+- Dependencies are installed during Docker build via `npm install`
+- Rebuild the image if dependencies are missing: `make rebuild`
 
 ### 5. Docker Volume Caching on macOS
 **Symptom:** File changes not visible in running container with docker-compose
@@ -293,9 +300,10 @@ make compose-up  # OR make run
 **Advantages:**
 - Background operation
 - Easy restart without rebuilding
-- Volume-mounted eval-server code (live reload)
 - Managed by docker-compose
 - Better for long-running development
+
+**Note:** Agent server code is baked into the image, so rebuilds are needed for code changes
 
 **Usage:**
 ```bash
@@ -312,9 +320,11 @@ make test                    # Run simple eval test
 # View logs
 make logs                    # Follow all logs
 
-# Iterate on eval-server code (NO REBUILD NEEDED)
-vim eval-server/nodejs/src/api-server.js
-docker-compose restart       # Picks up changes immediately
+# Iterate on agent server code (REQUIRES REBUILD)
+vim submodules/browser-operator-core/agent-server/nodejs/src/api-server.js
+make rebuild
+docker-compose down
+docker-compose up -d
 
 # Stop
 make stop                    # OR docker-compose down
@@ -362,7 +372,7 @@ make run                     # Restart after rebuild
 |--------|-----------|-------------------|
 | **Logs** | Live in terminal | Background, use `make logs` |
 | **Stopping** | Ctrl+C or docker stop | `make stop` |
-| **Eval server code** | Baked into image, rebuild needed | Volume-mounted, restart only |
+| **Agent server code** | Baked into image, rebuild needed | Baked into image, rebuild needed |
 | **DevTools code** | Baked into image, rebuild needed | Baked into image, rebuild needed |
 | **Best for** | Debugging, seeing startup issues | Development iteration |
 | **Script** | `run-local.sh` | `docker-compose.yml` |
@@ -377,9 +387,11 @@ make run                     # Restart after rebuild
 ```bash
 cd deployments/local
 
-# Browser-agent-server changes (NO REBUILD)
-vim ../../browser-agent-server/nodejs/src/api-server.js
-docker-compose restart       # Volume-mounted, picks up changes
+# Agent server changes (REQUIRES REBUILD)
+vim ../../submodules/browser-operator-core/agent-server/nodejs/src/api-server.js
+make rebuild
+docker-compose down
+docker-compose up -d
 
 # DevTools changes
 vim ../../browser-operator-core/front_end/panels/ai_chat/...
@@ -430,10 +442,12 @@ CHROMIUM_DATA_HOST=/tmp/browser URLS="https://example.com" make run
 
 ## Important Notes
 
-### Browser Agent Server Location
-The browser agent server code is in: `browser-agent-server/nodejs/`
+### Agent Server Location
+The agent server code is in: `submodules/browser-operator-core/agent-server/nodejs/`
 
 This is the main server that handles browser automation requests via HTTP/WebSocket APIs.
+
+**Note:** The submodule must be on the `feat/js-eval-endpoint` branch to have the `/page/execute` endpoint.
 
 ### CDP Port is 9223, Not 9222
 The default Chrome DevTools port is 9222, but this project uses 9223.
@@ -442,14 +456,15 @@ Check these files:
 - `deployments/commons/supervisor/services/browser-agent-server.conf` - Must have `CDP_PORT="9223"`
 - Chromium startup config uses port 9223
 
-### Dependencies in browser-agent-server/nodejs/
+### Dependencies in submodules/browser-operator-core/agent-server/nodejs/
 Required packages:
-- js-yaml (for parsing YAML eval files)
-- express (HTTP server)
 - ws (WebSocket server)
-- chrome-remote-interface (CDP client)
+- uuid (ID generation)
+- winston (logging)
+- js-yaml (YAML parsing)
+- dotenv (environment variables)
 
-All managed by `package.json` and `npm install`.
+All managed by `package.json` and `npm install` during Docker build.
 
 ### Lock File Cleanup is Automatic
 After implementing `deployments/*/scripts/init-container.sh`, you should never need to manually clean lock files again. The script runs on every container start.
@@ -706,7 +721,7 @@ curl -X POST http://localhost:8080/page/screenshot \
    - `webarena/` - WebArena benchmark runner
    - `lib/` - Shared evaluation library (judges, adapters, loaders)
 
-3. **Renamed eval-server** - Now called `browser-agent-server/` to better reflect its purpose
+3. **Consolidated agent server** - Now using `submodules/browser-operator-core/agent-server/` directly (removed duplicate `browser-agent-server/` directory)
 
 4. **Moved WebArena config files** - Task configurations moved to in-repo location:
    - New location: `evals/webarena/config_files/` (preferred)
@@ -718,6 +733,7 @@ curl -X POST http://localhost:8080/page/screenshot \
 2. **Fixed tmpfs mounts** - Added `/tmp` to prevent X11 lock persistence
 3. **Added automatic lock cleanup** - `deployments/*/scripts/init-container.sh` runs on every start
 4. **Updated Chromium flags** - Added `--custom-devtools-frontend=http://localhost:8001/`
-5. **Fixed CDP port** - Set `CDP_PORT="9223"` in browser-agent-server supervisor config
+5. **Fixed CDP port** - Set `CDP_PORT="9223"` in agent server supervisor config
+6. **Added /page/execute endpoint** - JavaScript execution endpoint available in `feat/js-eval-endpoint` branch
 6. **Created make test** - Quick verification of API functionality
 7. **Fixed path resolution** - `eval_loader.py` now supports new `evals/native/data/` structure

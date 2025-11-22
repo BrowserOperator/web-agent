@@ -55,12 +55,12 @@ RUN sed -i 's/AUTOMATED_MODE: false/AUTOMATED_MODE: true/' front_end/panels/ai_c
 # Build Browser Operator version with AUTOMATED_MODE enabled
 RUN npm run build
 
-# Eval-Server build stage
+# Agent Server build stage
 FROM node:22-bullseye-slim AS browser-agent-server-builder
 WORKDIR /browser-agent-server
-COPY browser-agent-server/nodejs/package*.json ./
+COPY submodules/browser-operator-core/agent-server/nodejs/package*.json ./
 RUN npm install --production
-COPY browser-agent-server/nodejs/ ./
+COPY submodules/browser-operator-core/agent-server/nodejs/ ./
 
 # Multi-stage build using kernel-images as base
 FROM docker.io/golang:1.25.0 AS server-builder
@@ -285,8 +285,8 @@ RUN chown -R kernel:kernel /usr/share/nginx/devtools
 # Copy browser-agent-server from builder
 COPY --from=browser-agent-server-builder /browser-agent-server /opt/browser-agent-server
 
-# Copy custom browser-agent-server startup script INTO browser-agent-server directory
-COPY browser-agent-server/start.js /opt/browser-agent-server/start-cloudrun.js
+# Copy custom agent server startup script from submodule
+COPY submodules/browser-operator-core/agent-server/start.js /opt/browser-agent-server/start-cloudrun.js
 RUN chmod +x /opt/browser-agent-server/start-cloudrun.js
 
 # Set permissions for browser-agent-server

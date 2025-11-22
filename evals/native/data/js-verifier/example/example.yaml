@@ -1,0 +1,34 @@
+# Toggle checkbox test - using HTML form test site
+id: "example-test"
+name: "Check Extra Cheese Checkbox"
+description: "Test checking a specific checkbox using the check method"
+enabled: true
+
+target:
+  url: "https://httpbin.org/forms/post"
+  wait_for: "networkidle"
+  wait_timeout: 5000
+
+tool: "action_agent"
+timeout: 45000
+
+input:
+  objective: "Find and check the \"Extra Cheese\" checkbox in the Pizza Toppings section"
+  reasoning: "Testing checkbox interaction functionality using check method"
+  hint: "Look for the Extra Cheese checkbox and use the check method to select it"
+
+validation:
+  type: "js-eval"
+  js-eval:
+    script: |
+      document.querySelector('input[value="cheese"]').checked;
+    expected_result: true
+    timeout: 5000
+
+metadata:
+  tags: ["action", "checkbox", "check", "form", "httpbin"]
+  priority: "high"
+  timeout: 45000
+  retries: 2
+  flaky: false
+  owner: "devtools-team"

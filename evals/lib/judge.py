@@ -49,26 +49,38 @@ class LLMJudge:
         provider: str,
         model_name: str,
         api_key: str,
-        temperature: float = None
+        temperature: float = None,
+        endpoint: str = None
     ):
         """
         Initialize LLM judge.
 
         Args:
-            provider: Provider name (currently only "openai" supported)
-            model_name: Model name (e.g., "gpt-4")
+            provider: Provider name ("openai", "litellm", etc.)
+            model_name: Model name (e.g., "gpt-4", "qwen3:14b-q8_0")
             api_key: API key for the provider
             temperature: Sampling temperature (optional, None uses model default)
+            endpoint: Custom endpoint URL (optional, for LiteLLM or custom deployments)
         """
         self.provider = provider
         self.model_name = model_name
         self.api_key = api_key
         self.temperature = temperature
+        self.endpoint = endpoint
 
         if provider == "openai":
             self.client = OpenAI(api_key=api_key)
+        elif provider == "litellm":
+            # LiteLLM uses OpenAI-compatible API
+            if not endpoint:
+                raise ValueError("LiteLLM provider requires 'endpoint' parameter")
+            self.client = OpenAI(api_key=api_key, base_url=endpoint)
         else:
-            raise ValueError(f"Unsupported judge provider: {provider}")
+            # Try to initialize with custom endpoint if provided
+            if endpoint:
+                self.client = OpenAI(api_key=api_key, base_url=endpoint)
+            else:
+                raise ValueError(f"Unsupported judge provider: {provider}")
 
     def judge(
         self,
@@ -198,26 +210,38 @@ class VisionJudge:
         provider: str,
         model_name: str,
         api_key: str,
-        temperature: float = None
+        temperature: float = None,
+        endpoint: str = None
     ):
         """
         Initialize Vision judge.
 
         Args:
-            provider: Provider name (currently only "openai" supported)
-            model_name: Model name (e.g., "gpt-4o", "gpt-4-vision-preview")
+            provider: Provider name ("openai", "litellm", etc.)
+            model_name: Model name (e.g., "gpt-4o", "gpt-4-vision-preview", "qwen3:14b-q8_0")
             api_key: API key for the provider
             temperature: Sampling temperature (optional, None uses model default)
+            endpoint: Custom endpoint URL (optional, for LiteLLM or custom deployments)
         """
         self.provider = provider
         self.model_name = model_name
         self.api_key = api_key
         self.temperature = temperature
+        self.endpoint = endpoint
 
         if provider == "openai":
             self.client = OpenAI(api_key=api_key)
+        elif provider == "litellm":
+            # LiteLLM uses OpenAI-compatible API
+            if not endpoint:
+                raise ValueError("LiteLLM provider requires 'endpoint' parameter")
+            self.client = OpenAI(api_key=api_key, base_url=endpoint)
         else:
-            raise ValueError(f"Unsupported judge provider: {provider}")
+            # Try to initialize with custom endpoint if provided
+            if endpoint:
+                self.client = OpenAI(api_key=api_key, base_url=endpoint)
+            else:
+                raise ValueError(f"Unsupported judge provider: {provider}")
 
     def judge(
         self,
@@ -437,3 +461,152 @@ class SimpleJudge:
             reasoning=f"Keyword matching: {matches}/{total} criteria matched",
             criteria_results=criteria_results
         )
+
+
+class JSEvalJudge:
+    """JavaScript evaluation-based judge for deterministic validation."""
+
+    def __init__(self, api_client, client_id: str, tab_id: str):
+        """
+        Initialize JS Eval judge.
+
+        Args:
+            api_client: APIClient instance for executing JavaScript
+            client_id: Client ID for the browser tab
+            tab_id: Tab ID for the browser tab
+        """
+        self.api_client = api_client
+        self.client_id = client_id
+        self.tab_id = tab_id
+
+    def judge(
+        self,
+        script: str,
+        expected_result: Any,
+        timeout: int = 5000
+    ) -> JudgeResult:
+        """
+        Judge by executing JavaScript and comparing with expected result.
+
+        Args:
+            script: JavaScript code to execute
+            expected_result: Expected result to compare against
+            timeout: Timeout in milliseconds (not used currently, for future)
+
+        Returns:
+            JudgeResult with pass/fail based on comparison
+        """
+        try:
+            # Execute JavaScript
+            result = self.api_client.execute_javascript(
+                client_id=self.client_id,
+                tab_id=self.tab_id,
+                expression=script,
+                return_by_value=True,
+                await_promise=False
+            )
+
+            if not result["success"]:
+                return JudgeResult(
+                    passed=False,
+                    score=0.0,
+                    reasoning=f"JavaScript execution failed: {result.get('error', 'Unknown error')}",
+                    criteria_results={}
+                )
+
+            # Check for exceptions
+            if result.get("exceptionDetails"):
+                return JudgeResult(
+                    passed=False,
+                    score=0.0,
+                    reasoning=f"JavaScript threw exception: {result['exceptionDetails']}",
+                    criteria_results={}
+                )
+
+            # Get the actual result
+            actual_result = result["result"]
+
+            # Compare with expected result
+            passed = self._compare_results(actual_result, expected_result)
+
+            if passed:
+                reasoning = f"✓ JavaScript validation passed\n"
+                reasoning += f"  Script: {script[:100]}{'...' if len(script) > 100 else ''}\n"
+                reasoning += f"  Expected: {expected_result}\n"
+                reasoning += f"  Actual: {actual_result}\n"
+                reasoning += f"  Match: True"
+                score = 1.0
+            else:
+                reasoning = f"✗ JavaScript validation failed\n"
+                reasoning += f"  Script: {script[:100]}{'...' if len(script) > 100 else ''}\n"
+                reasoning += f"  Expected: {expected_result}\n"
+                reasoning += f"  Actual: {actual_result}\n"
+                reasoning += f"  Match: False"
+                score = 0.0
+
+            return JudgeResult(
+                passed=passed,
+                score=score,
+                reasoning=reasoning,
+                criteria_results={"javascript_match": passed}
+            )
+
+        except Exception as e:
+            return JudgeResult(
+                passed=False,
+                score=0.0,
+                reasoning=f"JS Eval judge failed: {str(e)}",
+                criteria_results={}
+            )
+
+    def _compare_results(self, actual, expected) -> bool:
+        """
+        Compare actual and expected results with type-aware logic.
+
+        Args:
+            actual: Actual result from JavaScript execution
+            expected: Expected result from configuration
+
+        Returns:
+            True if results match, False otherwise
+        """
+        # Handle None/null
+        if actual is None and expected is None:
+            return True
+        if actual is None or expected is None:
+            return False
+
+        # Handle boolean comparison
+        if isinstance(expected, bool):
+            # Convert actual to boolean for comparison
+            return bool(actual) == expected
+
+        # Handle string comparison (case-sensitive)
+        if isinstance(expected, str):
+            return str(actual) == expected
+
+        # Handle numeric comparison
+        if isinstance(expected, (int, float)):
+            try:
+                return float(actual) == float(expected)
+            except (ValueError, TypeError):
+                return False
+
+        # Handle list/array comparison
+        if isinstance(expected, list):
+            if not isinstance(actual, list):
+                return False
+            if len(actual) != len(expected):
+                return False
+            return all(self._compare_results(a, e) for a, e in zip(actual, expected))
+
+        # Handle dict/object comparison
+        if isinstance(expected, dict):
+            if not isinstance(actual, dict):
+                return False
+            if set(actual.keys()) != set(expected.keys()):
+                return False
+            return all(self._compare_results(actual[k], expected[k]) for k in expected.keys())
+
+        # Default: direct equality
+        return actual == expected
