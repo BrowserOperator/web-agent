@@ -78,6 +78,133 @@ class EvaluationRunner:
         self.screenshots_dir = Path(__file__).parent / 'screenshots'
         self.screenshots_dir.mkdir(exist_ok=True)
 
+    def run_from_folder(self, folder_path: str):
+        """
+        Run all evaluations from a folder containing subdirectories with task.yaml files.
+
+        Args:
+            folder_path: Path to folder containing test subdirectories (relative to data/ or absolute)
+        """
+        print(f"\n{'='*70}")
+        print(f"Running All Evaluations from Folder")
+        print(f"{'='*70}\n")
+
+        # Check API server health
+        print("Checking API server connection...")
+        if not self.api_client.check_health():
+            print("ERROR: Cannot connect to API server at", self.config.get_api_endpoint())
+            print("Please ensure the evaluation server is running.")
+            sys.exit(1)
+        print("✓ API server is reachable\n")
+
+        # Resolve folder path
+        folder = self._resolve_folder_path(folder_path)
+        if not folder.exists() or not folder.is_dir():
+            print(f"ERROR: Folder not found: {folder}")
+            sys.exit(1)
+
+        # Discover all task.yaml files in subdirectories
+        task_files = sorted(folder.glob("*/task.yaml"))
+        if not task_files:
+            # Also try direct yaml files in the folder
+            task_files = sorted(folder.glob("*.yaml"))
+            task_files = [f for f in task_files if f.name != 'config.yaml']
+
+        if not task_files:
+            print(f"ERROR: No task.yaml files found in subdirectories of {folder}")
+            print(f"Expected structure: {folder}/<test-name>/task.yaml")
+            sys.exit(1)
+
+        print(f"Found {len(task_files)} evaluations in {folder_path}\n")
+
+        # Load and run each evaluation
+        import yaml
+        for i, task_file in enumerate(task_files, 1):
+            # Get test name from parent directory or filename
+            test_name = task_file.parent.name if task_file.name == 'task.yaml' else task_file.stem
+
+            try:
+                with open(task_file, 'r') as f:
+                    data = yaml.safe_load(f)
+
+                evaluation = Evaluation(task_file, data)
+
+                if not evaluation.enabled:
+                    print(f"[{i}/{len(task_files)}] Skipping (disabled): {test_name}")
+                    continue
+
+                print(f"[{i}/{len(task_files)}] Running: {test_name}")
+                print(f"  ID: {evaluation.id}")
+
+                result = self._run_single_evaluation(evaluation)
+                self.results.append(result)
+
+                # Print result
+                status = "PASS ✓" if result['passed'] else "FAIL ✗"
+                print(f"  Status: {status}")
+                print(f"  Score: {result['score']:.2f}")
+                print(f"  Time: {result['execution_time_ms']}ms")
+                print()
+
+                # Add delay between requests
+                if i < len(task_files):
+                    delay = self.config.get_execution_config().get('request_delay', 1)
+                    if delay > 0:
+                        time.sleep(delay)
+
+            except KeyboardInterrupt:
+                print("\n\nInterrupted by user. Saving partial results...")
+                break
+            except Exception as e:
+                print(f"[{i}/{len(task_files)}] Running: {test_name}")
+                print(f"  ERROR: {str(e)}\n")
+                self.results.append({
+                    'eval_id': test_name,
+                    'eval_name': test_name,
+                    'category': folder_path,
+                    'passed': False,
+                    'score': 0.0,
+                    'reasoning': f"Execution error: {str(e)}",
+                    'execution_time_ms': 0,
+                    'error': str(e)
+                })
+
+        # Print summary
+        self._print_summary()
+
+        # Save report
+        report_name = folder_path.replace('/', '_').replace('\\', '_')
+        self._save_report(report_name)
+
+    def _resolve_folder_path(self, folder_path: str) -> Path:
+        """
+        Resolve folder path to absolute path.
+
+        Args:
+            folder_path: Relative or absolute path to folder
+
+        Returns:
+            Absolute Path to folder
+        """
+        path = Path(folder_path)
+
+        # If absolute path
+        if path.is_absolute():
+            return path
+
+        # Try relative to data directory
+        data_dir = Path(__file__).parent / 'data'
+        candidate = data_dir / folder_path
+        if candidate.exists():
+            return candidate
+
+        # Try as-is (relative to current directory)
+        if path.exists():
+            return path.resolve()
+
+        # Return the data_dir candidate (will show proper error)
+        return candidate
+
     def run_from_path(self, eval_path: str):
         """
         Run a specific evaluation from a file path.
@@ -541,12 +668,20 @@ class EvaluationRunner:
         print(f"\n{'='*70}")
         print("Summary")
         print(f"{'='*70}")
-        print(f"Total: {total}")
-        print(f"Passed: {passed} ({pass_rate:.1f}%)")
-        print(f"Failed: {failed}")
-        print(f"Average Score: {avg_score:.2f}")
-        print(f"Average Time: {avg_time:.0f}ms")
-        print(f"{'='*70}\n")
+        print(f"\n  Result: {passed}/{total} passed ({pass_rate:.1f}%)\n")
+        print(f"  Passed: {passed}")
+        print(f"  Failed: {failed}")
+        print(f"  Average Score: {avg_score:.2f}")
+        print(f"  Average Time: {avg_time:.0f}ms")
+
+        # List failed tests if any
+        if failed > 0:
+            print(f"\n  Failed tests:")
+            for r in self.results:
+                if not r['passed']:
+                    print(f"    - {r['eval_id']}: {r.get('reasoning', 'No reason')[:60]}...")
+
+        print(f"\n{'='*70}\n")
 
     def _save_report(self, category: str):
         """
@@ -610,11 +745,13 @@ Examples:
   # Run specific eval by file path
   cd native && python3 run.py --path action-agent/a11y-001.yaml
 
-  # Run specific eval by directory path (NEW: auto-detects task.yaml)
-  cd native && python3 run.py --path js-verifier/action/dropdown
-  cd native && python3 run.py --path js-verifier/action/dropdown/ --verbose
+  # Run specific eval by directory path (auto-detects task.yaml)
+  cd native && python3 run.py --path js-verifier/action/dropdown --verbose
 
-  # Run all evals in a category
+  # Run ALL evals in a folder with subdirectories (e.g., js-verifier/action)
+  cd native && python3 run.py --folder js-verifier/action --verbose
+
+  # Run all evals in a category (for flat YAML structure)
   cd native && python3 run.py --category action-agent --limit 5
 
   # Run specific evals by ID
@@ -632,6 +769,11 @@ Examples:
         '--path',
         type=str,
         help='Path to eval file or directory (e.g., action-agent/a11y-001.yaml or js-verifier/action/dropdown)'
+    )
+    mode_group.add_argument(
+        '--folder',
+        type=str,
+        help='Run all evaluations in a folder with subdirectories (e.g., js-verifier/action)'
     )
     mode_group.add_argument(
         '--category',
@@ -684,6 +826,8 @@ Examples:
         # Execute based on mode
         if args.path:
             runner.run_from_path(args.path)
+        elif args.folder:
+            runner.run_from_folder(args.folder)
         elif args.category:
             # Use limit from config if not specified
             limit = args.limit if args.limit is not None else config.get_default_limit()

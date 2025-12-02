@@ -23,10 +23,21 @@ import yaml
 import requests
 import time
 import subprocess
+import json
 from lxml.html.clean import Cleaner
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from difflib import unified_diff
+
+# Import DOM comparison package
+from dom import (
+    build_enhanced_tree,
+    compare_trees,
+    DEFAULT_FILTERS,
+    ChangeType,
+    group_changes_by_type,
+    DOMChange
+)
 
 
 def filter_html_tags(html: str) -> str:
@@ -69,8 +80,14 @@ class SnapshotBasedEvalBuilder:
         self.tab_id: Optional[str] = None
         self.tab_id_before: Optional[str] = None  # Second tab with BEFORE state
         self.api_base = "http://localhost:8080"
-        self.snapshot_before: Optional[str] = None
-        self.snapshot_after: Optional[str] = None
+
+        # DOM snapshots (CDP format) - primary
+        self.dom_snapshot_before: Optional[Dict[str, Any]] = None
+        self.dom_snapshot_after: Optional[Dict[str, Any]] = None
+
+        # HTML snapshots (optional backup for manual inspection)
+        self.html_snapshot_before: Optional[str] = None
+        self.html_snapshot_after: Optional[str] = None
 
     async def run(self):
         """Main workflow."""
@@ -113,6 +130,47 @@ class SnapshotBasedEvalBuilder:
 
         print("\n✅ Complete!")
         print(f"📄 Saved to: {self.file_path}")
+
+    def _capture_dom_snapshot(self, label: str) -> Optional[Dict[str, Any]]:
+        """
+        Capture DOM snapshot using CDP.
+
+        Args:
+            label: Label for logging (e.g., "BEFORE", "AFTER")
+
+        Returns:
+            CDP DOMSnapshot.captureSnapshot result or None on error
+        """
+        try:
+            print(f"📸 Capturing DOM snapshot ({label})...")
+            resp = requests.post(
+                f"{self.api_base}/page/dom-snapshot",
+                json={
+                    "clientId": self.client_id,
+                    "tabId": self.tab_id,
+                    "computedStyles": ["display", "visibility", "opacity"],
+                    "includeDOMRects": True
+                },
+                timeout=10
+            )
+            resp.raise_for_status()
+            result = resp.json()
+
+            snapshot = result.get('snapshot')
+            if not snapshot:
+                print(f"❌ No snapshot in response")
+                return None
+
+            # Get stats
+            num_strings = len(snapshot.get('strings', []))
+            num_docs = len(snapshot.get('documents', []))
+
+            print(f"✅ Captured {label} snapshot ({num_strings} strings, {num_docs} documents)")
+            return snapshot
+
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Snapshot error: {e}")
+            return None
 
     async def step_1_load_file(self):
         """Step 1: Load existing file or create new."""
@@ -216,28 +274,32 @@ class SnapshotBasedEvalBuilder:
         """Step 4: Capture BEFORE snapshot."""
         print("\n📸 Step 4: Capture BEFORE Snapshot\n")
 
+        # Capture DOM snapshot (primary)
+        self.dom_snapshot_before = self._capture_dom_snapshot("BEFORE")
+
+        if not self.dom_snapshot_before:
+            print("❌ Failed to capture DOM snapshot")
+            sys.exit(1)
+
+        # Optional: Capture HTML as backup for manual inspection
         try:
-            print("📸 Capturing page state BEFORE action (including iframes)...")
+            print("📸 Capturing HTML for reference...")
             resp = requests.post(
                 f"{self.api_base}/page/content",
                 json={
                     "clientId": self.client_id,
                     "tabId": self.tab_id,
                     "format": "html",
-                    "includeIframes": True
+                    "includeIframes": False  # DOM snapshot already includes all frames
                 },
                 timeout=10
             )
             resp.raise_for_status()
             result = resp.json()
-
-            self.snapshot_before = result['content']
-            frame_count = result.get('frameCount', 1)
-            print(f"✅ Captured BEFORE state ({len(self.snapshot_before)} bytes, {frame_count} frames)")
-
-        except requests.exceptions.RequestException as e:
-            print(f"❌ Snapshot error: {e}")
-            sys.exit(1)
+            self.html_snapshot_before = result['content']
+            print(f"✅ Captured HTML reference ({len(self.html_snapshot_before)} bytes)")
+        except Exception as e:
+            print(f"⚠️  HTML capture failed (non-critical): {e}")
 
     async def step_5_wait_for_action(self):
         """Step 5: Wait for user to perform action."""
@@ -256,28 +318,32 @@ class SnapshotBasedEvalBuilder:
         """Step 6: Capture AFTER snapshot."""
         print("\n📸 Step 6: Capture AFTER Snapshot\n")
 
+        # Capture DOM snapshot (primary)
+        self.dom_snapshot_after = self._capture_dom_snapshot("AFTER")
+
+        if not self.dom_snapshot_after:
+            print("❌ Failed to capture DOM snapshot")
+            sys.exit(1)
+
+        # Optional: Capture HTML as backup
         try:
-            print("📸 Capturing page state AFTER action (including iframes)...")
+            print("📸 Capturing HTML for reference...")
             resp = requests.post(
                 f"{self.api_base}/page/content",
                 json={
                     "clientId": self.client_id,
                     "tabId": self.tab_id,
                     "format": "html",
-                    "includeIframes": True
+                    "includeIframes": False
                 },
                 timeout=10
             )
             resp.raise_for_status()
             result = resp.json()
-
-            self.snapshot_after = result['content']
-            frame_count = result.get('frameCount', 1)
-            print(f"✅ Captured AFTER state ({len(self.snapshot_after)} bytes, {frame_count} frames)")
-
-        except requests.exceptions.RequestException as e:
-            print(f"❌ Snapshot error: {e}")
-            sys.exit(1)
+            self.html_snapshot_after = result['content']
+            print(f"✅ Captured HTML reference ({len(self.html_snapshot_after)} bytes)")
+        except Exception as e:
+            print(f"⚠️  HTML capture failed (non-critical): {e}")
 
     async def step_6_5_open_before_tab(self):
         """Step 6.5: Open second tab with BEFORE state for validation testing."""
@@ -318,79 +384,198 @@ class SnapshotBasedEvalBuilder:
             print("   Continuing without second tab (validation will only test AFTER state)")
             self.tab_id_before = None
 
+    def _generate_change_summary(
+        self,
+        grouped_changes: Dict[ChangeType, List[DOMChange]],
+        all_changes: List[DOMChange]
+    ) -> str:
+        """
+        Generate human-readable summary of changes.
+
+        Args:
+            grouped_changes: Changes grouped by type
+            all_changes: All changes
+
+        Returns:
+            Formatted markdown summary
+        """
+        summary_lines = [
+            f"**Total Changes:** {len(all_changes)}",
+            "",
+            "**Changes by Type:**"
+        ]
+
+        for change_type, changes_list in grouped_changes.items():
+            summary_lines.append(f"- {change_type.value}: {len(changes_list)}")
+
+        summary_lines.append("")
+        summary_lines.append("**Sample Changes:**")
+        summary_lines.append("")
+
+        # Show top 15 most important changes
+        priority_types = [
+            ChangeType.FORM_VALUE_CHANGED,
+            ChangeType.CHECKBOX_STATE_CHANGED,
+            ChangeType.OPTION_SELECTED_CHANGED,
+            ChangeType.NODE_ADDED,
+            ChangeType.NODE_REMOVED,
+            ChangeType.TEXT_CHANGED,
+            ChangeType.ATTR_MODIFIED,
+        ]
+
+        shown = 0
+        max_show = 15
+
+        for change_type in priority_types:
+            if change_type in grouped_changes and shown < max_show:
+                summary_lines.append(f"### {change_type.value}")
+                summary_lines.append("")
+
+                for change in grouped_changes[change_type][:5]:  # Max 5 per type
+                    if shown >= max_show:
+                        break
+
+                    summary_lines.append(f"**Path:** `{change.path}`")
+
+                    if change.details:
+                        summary_lines.append(f"**Details:**")
+                        for key, value in change.details.items():
+                            summary_lines.append(f"  - {key}: `{value}`")
+
+                    summary_lines.append("")
+                    shown += 1
+
+        if len(all_changes) > shown:
+            summary_lines.append(f"*... and {len(all_changes) - shown} more changes (see changes.json)*")
+
+        return "\n".join(summary_lines)
+
     async def step_7_generate_validation(self):
         """Step 7: Compare snapshots and generate validation using Claude Code."""
         print("\n🔍 Step 7: Generate Validation from Differences\n")
 
-        print("🔍 Analyzing differences...")
+        print("🔍 Analyzing DOM changes...")
 
-        # Apply filtering FIRST if enabled (default behavior)
-        before_content = self.snapshot_before
-        after_content = self.snapshot_after
-        if not self.disable_filtering:
-            print("🧹 Cleaning HTML with lxml.html.Cleaner...")
-            before_content = filter_html_tags(before_content)
-            after_content = filter_html_tags(after_content)
+        # Build enhanced trees from snapshots
+        print("🌲 Building DOM trees with DEFAULT_FILTERS...")
+        tree_before = build_enhanced_tree(self.dom_snapshot_before, filters=DEFAULT_FILTERS)
+        tree_after = build_enhanced_tree(self.dom_snapshot_after, filters=DEFAULT_FILTERS)
 
-        # Find differences from FILTERED content
-        before_lines = before_content.split('\n')
-        after_lines = after_content.split('\n')
+        if not tree_before or not tree_after:
+            print("❌ Failed to build DOM trees")
+            sys.exit(1)
 
-        diff = list(unified_diff(
-            before_lines,
-            after_lines,
-            lineterm='',
-            n=3  # 3 lines of context
-        ))
+        # Compare trees
+        print("🔍 Comparing trees for semantic changes...")
+        changes = compare_trees(tree_before, tree_after)
 
-        # Extract actual changes
-        added_lines = [line[1:] for line in diff if line.startswith('+') and not line.startswith('+++')]
-        removed_lines = [line[1:] for line in diff if line.startswith('-') and not line.startswith('---')]
+        # Group changes by type for better presentation
+        grouped_changes = group_changes_by_type(changes)
 
-        print(f"📊 Found {len(added_lines)} additions, {len(removed_lines)} removals")
+        print(f"\n📊 Detected {len(changes)} total change(s):")
+        for change_type, changes_list in grouped_changes.items():
+            print(f"   {change_type.value}: {len(changes_list)}")
 
-        # Save snapshots to files for Claude to analyze
+        # Save artifacts to workdir
         snapshot_dir = self.workdir
         os.makedirs(snapshot_dir, exist_ok=True)
 
-        before_file = f"{snapshot_dir}/before.html"
-        after_file = f"{snapshot_dir}/after.html"
-        diff_file = f"{snapshot_dir}/diff.txt"
+        # Save raw snapshots (for debugging)
+        before_snapshot_file = f"{snapshot_dir}/before.json"
+        after_snapshot_file = f"{snapshot_dir}/after.json"
 
-        with open(before_file, 'w') as f:
-            f.write(before_content)
+        with open(before_snapshot_file, 'w') as f:
+            json.dump(self.dom_snapshot_before, f, indent=2)
 
-        with open(after_file, 'w') as f:
-            f.write(after_content)
+        with open(after_snapshot_file, 'w') as f:
+            json.dump(self.dom_snapshot_after, f, indent=2)
 
-        with open(diff_file, 'w') as f:
-            f.write('\n'.join(diff))
+        # Save structured changes
+        changes_file = f"{snapshot_dir}/changes.json"
+        changes_data = {
+            'total_changes': len(changes),
+            'changes_by_type': {
+                change_type.value: len(changes_list)
+                for change_type, changes_list in grouped_changes.items()
+            },
+            'changes': [change.to_dict() for change in changes]
+        }
 
-        print(f"\n📁 Snapshots saved:")
-        print(f"   BEFORE: {before_file}")
-        print(f"   AFTER:  {after_file}")
-        print(f"   DIFF:   {diff_file}")
-        if not self.disable_filtering:
-            print("   (Cleaned: removed scripts, styles, and unsafe attributes)")
+        with open(changes_file, 'w') as f:
+            json.dump(changes_data, f, indent=2)
 
-        # Show sample of changes
-        if added_lines:
-            print("\n📝 Sample additions:")
-            for line in added_lines[:5]:
-                print(f"   + {line[:100]}...")
+        print(f"\n📁 Artifacts saved:")
+        print(f"   BEFORE: {before_snapshot_file}")
+        print(f"   AFTER:  {after_snapshot_file}")
+        print(f"   CHANGES: {changes_file}")
 
-        if removed_lines:
-            print("\n📝 Sample removals:")
-            for line in removed_lines[:5]:
-                print(f"   - {line[:100]}...")
+        # Optional: Save HTML diffs for supplementary inspection
+        if self.html_snapshot_before and self.html_snapshot_after:
+            # Apply filtering to HTML
+            before_html = filter_html_tags(self.html_snapshot_before) if not self.disable_filtering else self.html_snapshot_before
+            after_html = filter_html_tags(self.html_snapshot_after) if not self.disable_filtering else self.html_snapshot_after
+
+            with open(f"{snapshot_dir}/before.html", 'w') as f:
+                f.write(before_html)
+
+            with open(f"{snapshot_dir}/after.html", 'w') as f:
+                f.write(after_html)
+
+            # Generate diff for reference
+            before_lines = before_html.split('\n')
+            after_lines = after_html.split('\n')
+            diff = list(unified_diff(before_lines, after_lines, lineterm='', n=3))
+
+            with open(f"{snapshot_dir}/diff.txt", 'w') as f:
+                f.write('\n'.join(diff))
+
+            print(f"   BEFORE HTML: {snapshot_dir}/before.html")
+            print(f"   AFTER HTML: {snapshot_dir}/after.html")
+            print(f"   HTML DIFF: {snapshot_dir}/diff.txt")
+            print(f"   (HTML files are for reference only)")
+
+        # Show sample of important changes
+        print("\n📝 Key changes detected:")
+
+        # Prioritize change types for display
+        priority_types = [
+            ChangeType.FORM_VALUE_CHANGED,
+            ChangeType.CHECKBOX_STATE_CHANGED,
+            ChangeType.OPTION_SELECTED_CHANGED,
+            ChangeType.NODE_ADDED,
+            ChangeType.NODE_REMOVED,
+            ChangeType.TEXT_CHANGED,
+            ChangeType.ATTR_MODIFIED,
+        ]
+
+        shown = 0
+        max_show = 10
+
+        for change_type in priority_types:
+            if change_type in grouped_changes and shown < max_show:
+                for change in grouped_changes[change_type][:3]:  # Max 3 per type
+                    if shown >= max_show:
+                        break
+                    print(f"   [{change_type.value}] {change.path}")
+                    if change.details:
+                        detail_str = str(change.details)[:80]
+                        print(f"      {detail_str}...")
+                    shown += 1
+
+        if len(changes) > shown:
+            print(f"   ... and {len(changes) - shown} more changes")
 
         print("\n" + "=" * 80)
-        print("🤖 CALLING CLAUDE CODE TO ANALYZE SNAPSHOTS")
+        print("🤖 CALLING CLAUDE CODE TO ANALYZE CHANGES")
         print("=" * 80)
         print()
 
-        # Create a marker file that Claude Code can detect
+        # Create marker file for Claude Code
         marker_file = f"{snapshot_dir}/CLAUDE_REQUEST.md"
+
+        # Generate human-readable change summary
+        change_summary = self._generate_change_summary(grouped_changes, changes)
+
         with open(marker_file, 'w') as f:
             f.write(f"""# Claude Code: Generate Validation JavaScript
 
@@ -398,22 +583,48 @@ class SnapshotBasedEvalBuilder:
 {self.eval_data['input']['objective']}
 
 ## Task
-Analyze the BEFORE and AFTER snapshots and generate JavaScript validation code.
+Analyze the DOM changes and generate JavaScript validation code.
 
 ## Files to Analyze
-- BEFORE: {before_file}
-- AFTER: {after_file}
-- DIFF: {diff_file}
+
+### Primary Analysis (Semantic Changes)
+- **CHANGES**: {changes_file} - Structured semantic changes
+- **BEFORE**: {before_snapshot_file} - DOM snapshot before action (for reference)
+- **AFTER**: {after_snapshot_file} - DOM snapshot after action (for reference)
+
+### Supplementary (Optional)
+- **BEFORE HTML**: {snapshot_dir}/before.html - HTML for manual inspection
+- **AFTER HTML**: {snapshot_dir}/after.html - HTML for manual inspection
+- **HTML DIFF**: {snapshot_dir}/diff.txt - Line-by-line HTML diff
+
+## Detected Changes Summary
+
+{change_summary}
+
+## Change Types Explained
+
+- `form_value_changed`: Input/textarea value changed
+- `checkbox_state_changed`: Checkbox/radio checked state changed
+- `option_selected_changed`: Select option selected state changed
+- `node_added`: New element appeared in DOM
+- `node_removed`: Element removed from DOM
+- `text_changed`: Text content changed
+- `attr_modified`: Attribute value changed
+- `attr_added`: New attribute added
+- `attr_removed`: Attribute removed
+- `position_changed`: Element position/size changed
+- `style_changed`: Computed styles changed
 
 ## Instructions
-1. Read the BEFORE and AFTER HTML files
-2. Read the DIFF file to see what actually changed
-3. Identify the specific DOM changes that indicate the objective was completed
-4. Generate JavaScript code that:
+
+1. **Read the changes.json file** - This contains structured semantic changes
+2. **Identify the specific changes** that indicate the objective was completed
+3. **Generate JavaScript validation code** that:
    - Checks if the objective was completed successfully
    - **CRITICAL: DO NOT use `return` statements - end with a boolean expression**
-   - Is based on ACTUAL observed changes (not assumptions)
+   - Is based on ACTUAL observed changes (from changes.json)
    - Works in the browser context
+   - Focuses on the most significant/reliable changes
 
 ## CRITICAL: Output Format
 
@@ -488,19 +699,20 @@ curl -X POST http://localhost:8080/page/execute \\
 
 ## Workflow
 
-1. Write validation code to: {snapshot_dir}/verify.js
-2. Test it on the AFTER tab (should return TRUE)
-3. Test it on the BEFORE tab (should return FALSE)
-4. If you get errors or wrong results:
+1. Read changes.json to understand what changed
+2. Write validation code to: {snapshot_dir}/verify.js
+3. Test it on the AFTER tab (should return TRUE)
+4. Test it on the BEFORE tab (should return FALSE)
+5. If you get errors or wrong results:
    - Read the existing {snapshot_dir}/verify.js
    - Identify the issue from the API error response
    - Edit and fix the file
    - Save the improved version
    - Test BOTH tabs again
-5. Iterate until:
+6. Iterate until:
    - AFTER tab returns {{"result": {{"value": true}}}}
    - BEFORE tab returns {{"result": {{"value": false}}}}
-6. Only then is your code complete
+7. Only then is your code complete
 
 ## Save Your Response
 When you generate WORKING validation JavaScript (tested via API), save it to:
@@ -527,8 +739,9 @@ learn from previous attempts, and improve it iteratively.
         print()
         print("📝 Instructions for Claude Code:")
         print(f"   1. Read @{marker_file}")
-        print(f"   2. Analyze the snapshots and generate validation code")
-        print(f"   3. TEST on BOTH tabs using /page/execute endpoint:")
+        print(f"   2. Read @{changes_file} to understand semantic changes")
+        print(f"   3. Generate validation code based on ACTUAL changes")
+        print(f"   4. TEST on BOTH tabs using /page/execute endpoint:")
         if self.tab_id_before:
             print(f"      - AFTER tab ({self.tab_id}) should return TRUE")
             print(f"      - BEFORE tab ({self.tab_id_before}) should return FALSE")

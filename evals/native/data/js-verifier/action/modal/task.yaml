@@ -1,0 +1,32 @@
+id: action-agent-modal-001
+name: Open and Close Modal
+description: Test opening modal dialog and closing it with X button
+enabled: true
+target:
+  url: https://getbootstrap.com/docs/5.0/components/modal/
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 60000
+input:
+  objective: Click "Open first modal" to open the modal dialog. Then click "Open second
+    modal" inside the first modal to open the second modal.
+  reasoning: Testing modal dialog interaction patterns
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - modal
+  - dialog
+  - popup
+  - overlay
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

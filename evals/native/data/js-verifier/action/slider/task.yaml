@@ -1,0 +1,31 @@
+id: action-agent-slider-001
+name: Adjust Range Slider
+description: Test moving slider to set a specific value
+enabled: true
+target:
+  url: https://jqueryui.com/slider/
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 60000
+input:
+  objective: Move the slider to set the value to 75
+  reasoning: Testing slider/range input manipulation
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - slider
+  - range
+  - form
+  - drag
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

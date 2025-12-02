@@ -1,0 +1,35 @@
+id: action-agent-multistep-001
+name: Complete Search and Submit
+description: Test filling a search form and then clicking the submit button
+enabled: true
+target:
+  url: https://www.bing.com
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 60000
+input:
+  objective: Fill the search box with "automated testing tools" and then click the
+    search button
+  reasoning: Testing multi-step form interaction combining fill and click actions
+  hint: 'This requires two actions: first fill the search field, then click the search
+    button'
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - multi-step
+  - form-fill
+  - click
+  - bing
+  - search
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

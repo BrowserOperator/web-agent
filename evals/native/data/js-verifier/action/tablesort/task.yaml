@@ -1,0 +1,31 @@
+id: action-agent-tablesort-001
+name: Sort Table Column
+description: Test clicking table column header to sort data
+enabled: true
+target:
+  url: https://datatables.net/examples/basic_init/zero_configuration.html
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 60000
+input:
+  objective: Click on the "Name" column header to sort the table by name
+  reasoning: Testing table column sorting interaction
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - table
+  - sort
+  - column
+  - data
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

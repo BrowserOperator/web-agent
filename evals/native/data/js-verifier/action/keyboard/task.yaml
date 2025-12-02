@@ -1,0 +1,32 @@
+id: action-agent-keyboard-001
+name: Keyboard Tab Navigation
+description: Test using keyboard navigation to move between elements
+enabled: true
+target:
+  url: https://www.w3.org/WAI/ARIA/apg/patterns/menubar/examples/menubar-navigation/
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 60000
+input:
+  objective: Use Tab key to navigate between menu items and select "Accessibility
+    Features" item in the menubar.
+  reasoning: Testing keyboard-only navigation patterns
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - keyboard
+  - navigation
+  - accessibility
+  - focus
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

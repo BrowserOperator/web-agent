@@ -1,0 +1,31 @@
+id: action-agent-multiselect-001
+name: Select Multiple Options
+description: Test selecting multiple options from a multi-select dropdown
+enabled: true
+target:
+  url: https://www.w3schools.com/tags/tryit.asp?filename=tryhtml_select_multiple
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 60000
+input:
+  objective: Select both "Volvo" and "Audi" from the multi-select dropdown
+  reasoning: Testing multiple selection in select elements
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - multi-select
+  - dropdown
+  - form
+  - multiple
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

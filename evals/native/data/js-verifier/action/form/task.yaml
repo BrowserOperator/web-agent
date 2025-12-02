@@ -1,0 +1,31 @@
+id: form-001
+name: Fill Search Query
+description: Test filling a search input field with specific text
+enabled: true
+target:
+  url: https://www.google.com
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 45000
+input:
+  objective: Fill the search box with "Chrome DevTools automation testing"
+  reasoning: Testing form input capability with a specific search query
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - form-fill
+  - input
+  - google
+  - basic
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

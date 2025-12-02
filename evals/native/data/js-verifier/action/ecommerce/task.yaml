@@ -12,25 +12,7 @@ input:
   objective: Click the "Add to Cart" button for this storage container
   reasoning: Testing e-commerce interaction with product cart functionality
 validation:
-  type: llm-judge
-  llm_judge:
-    model: gpt-4.1-mini
-    temperature: 0.3
-    criteria:
-    - Located the Add to Cart button on the product page
-    - Successfully clicked the button
-    - Handled any popups or confirmations that appeared
-    - Verified the item was added (cart count changed or confirmation shown)
-    - Dealt with page dynamics after clicking
-    visual_verification:
-      enabled: true
-      capture_before: true
-      capture_after: true
-      prompts:
-      - Compare screenshots to verify the Add to Cart button was clicked
-      - Check if cart count indicator increased or shows the item was added
-      - Look for any confirmation popup or notification about the item being added
-      - Verify the button state changed (e.g., to "Added to Cart" or disabled)
+  type: js-eval
   js-eval:
     script: verify.js
     expected_result: true

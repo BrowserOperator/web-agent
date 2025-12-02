@@ -1,0 +1,32 @@
+id: action-agent-login-001
+name: Fill Login Credentials
+description: Test filling username and password fields in a login form
+enabled: true
+target:
+  url: https://the-internet.herokuapp.com/login
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 60000
+input:
+  objective: Fill the username field with "tomsmith" and password field with "SuperSecretPassword!"
+  reasoning: Testing form fill with multiple fields including password type
+  input_data: <username>tomsmith</username><password>SuperSecretPassword!</password>
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - login
+  - form-fill
+  - authentication
+  - multi-field
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

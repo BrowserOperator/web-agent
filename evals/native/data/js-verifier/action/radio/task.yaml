@@ -1,0 +1,33 @@
+id: action-agent-radio-001
+name: Select Radio Button Option
+description: Test selecting a specific radio button option using click method
+enabled: true
+target:
+  url: https://httpbin.org/forms/post
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 45000
+input:
+  objective: Select the "Medium" pizza size from the Pizza Size radio button group
+  reasoning: Testing radio button selection functionality
+  hint: Look for the Medium radio button in the Pizza Size section and click it to
+    select
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - radio
+  - click
+  - form
+  - httpbin
+  priority: high
+  timeout: 45000
+  retries: 2
+  flaky: false
+  owner: devtools-team
