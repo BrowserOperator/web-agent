@@ -40,6 +40,109 @@ from dom import (
 )
 
 
+class ExampleManager:
+    """Manages persistent storage of examples for extend mode."""
+
+    def __init__(self, workdir: str):
+        self.workdir = workdir
+        self.examples_dir = os.path.join(workdir, 'examples')
+        self.index_file = os.path.join(self.examples_dir, 'examples.json')
+        self.index: Dict[str, Any] = {'baseline': None, 'examples': []}
+        self._load_index()
+
+    def _load_index(self):
+        """Load existing index or create new."""
+        os.makedirs(self.examples_dir, exist_ok=True)
+        if os.path.exists(self.index_file):
+            with open(self.index_file, 'r') as f:
+                self.index = json.load(f)
+
+    def _save_index(self):
+        """Persist index to disk."""
+        with open(self.index_file, 'w') as f:
+            json.dump(self.index, f, indent=2)
+
+    def save_baseline(self, client_id: str, tab_id: str, snapshot: Dict[str, Any]):
+        """Save baseline snapshot."""
+        baseline_dir = os.path.join(self.examples_dir, 'baseline')
+        os.makedirs(baseline_dir, exist_ok=True)
+        snapshot_path = os.path.join(baseline_dir, 'snapshot.json')
+        with open(snapshot_path, 'w') as f:
+            json.dump(snapshot, f, indent=2)
+        self.index['baseline'] = {
+            'client_id': client_id,
+            'tab_id': tab_id,
+            'snapshot_path': 'baseline/snapshot.json'
+        }
+        self._save_index()
+
+    def add_example(self, example_type: str, client_id: str, tab_id: str,
+                    snapshot: Dict[str, Any], changes: List) -> str:
+        """Add a new example. Returns example ID."""
+        # Generate ID
+        existing = [e for e in self.index['examples'] if e['type'] == example_type]
+        num = len(existing) + 1
+        example_id = f"{example_type}-{num:03d}"
+
+        # Create directory
+        example_dir = os.path.join(self.examples_dir, example_id)
+        os.makedirs(example_dir, exist_ok=True)
+
+        # Save files
+        snapshot_path = os.path.join(example_dir, 'snapshot.json')
+        changes_path = os.path.join(example_dir, 'changes.json')
+
+        with open(snapshot_path, 'w') as f:
+            json.dump(snapshot, f, indent=2)
+
+        # Convert DOMChange objects to dicts if needed
+        changes_data = []
+        for c in changes:
+            if hasattr(c, 'to_dict'):
+                changes_data.append(c.to_dict())
+            else:
+                changes_data.append(c)
+
+        with open(changes_path, 'w') as f:
+            json.dump(changes_data, f, indent=2)
+
+        # Save metadata
+        metadata = {
+            'example_id': example_id,
+            'type': example_type,
+            'expected_result': (example_type == 'positive'),
+            'client_id': client_id,
+            'tab_id': tab_id
+        }
+        with open(os.path.join(example_dir, 'metadata.json'), 'w') as f:
+            json.dump(metadata, f, indent=2)
+
+        # Update index
+        self.index['examples'].append({
+            'id': example_id,
+            'type': example_type,
+            'expected_result': (example_type == 'positive'),
+            'client_id': client_id,
+            'tab_id': tab_id,
+            'snapshot_path': f'{example_id}/snapshot.json',
+            'changes_path': f'{example_id}/changes.json'
+        })
+        self._save_index()
+        return example_id
+
+    def get_all_examples(self) -> List[Dict[str, Any]]:
+        """Get all examples for regression testing."""
+        return self.index['examples']
+
+    def get_baseline_snapshot(self) -> Optional[Dict[str, Any]]:
+        """Load baseline snapshot."""
+        if not self.index['baseline']:
+            return None
+        path = os.path.join(self.examples_dir, self.index['baseline']['snapshot_path'])
+        with open(path, 'r') as f:
+            return json.load(f)
+
+
 def filter_html_tags(html: str) -> str:
     """
     Clean HTML using lxml.html.Cleaner.
@@ -91,6 +194,25 @@ class SnapshotBasedEvalBuilder:
 
     async def run(self):
         """Main workflow."""
+        # Check for existing verify.js - offer extend mode
+        verify_js_path = os.path.join(self.workdir, 'verify.js')
+        if os.path.exists(verify_js_path):
+            print("📋 Existing verify.js detected!")
+            print()
+            print("Choose mode:")
+            print("  [E]xtend - Add more examples to refine verify.js")
+            print("  [R]ebuild - Start from scratch")
+            print("  [Q]uit")
+            print()
+            choice = input("Choice: ").strip().lower()
+            if choice == 'e':
+                await self.run_extend()
+                return
+            elif choice == 'q':
+                print("Exiting.")
+                return
+            # else continue with full rebuild
+
         print("🚀 Snapshot-Based Eval Builder\n")
         print("This workflow:")
         print("1. Loads your eval file (or creates new)")
@@ -1127,6 +1249,388 @@ return true;"""
             'validation': {'type': 'js-eval', 'js-eval': {'script': '', 'expected_result': True, 'timeout': 5000}}
         }
 
+    # ========================================================================
+    # EXTEND MODE: Refine existing verify.js with additional examples
+    # ========================================================================
+
+    async def run_extend(self):
+        """Extend workflow for refining existing verify.js with additional examples."""
+        print("\n🔄 Extend Mode: Refine verify.js with additional examples\n")
+        print("This workflow:")
+        print("1. Opens browser to target URL")
+        print("2. You add positive/negative examples")
+        print("3. Each example tests current verify.js")
+        print("4. If wrong, Claude Code adjusts the script")
+        print("5. Regression tests ensure all examples pass\n")
+
+        # Initialize example manager
+        self.example_manager = ExampleManager(self.workdir)
+
+        # Load existing task.yaml
+        await self.step_1_load_file()
+
+        # Open browser to target URL
+        await self.step_3_open_browser()
+
+        # Capture or load baseline snapshot
+        if self.example_manager.index['baseline']:
+            print("📂 Loading existing baseline snapshot...")
+            baseline_snapshot = self.example_manager.get_baseline_snapshot()
+            print(f"✅ Loaded baseline from previous session")
+        else:
+            print("📸 Capturing baseline snapshot (initial page state)...")
+            baseline_snapshot = self._capture_dom_snapshot("BASELINE")
+            if baseline_snapshot:
+                self.example_manager.save_baseline(self.client_id, self.tab_id, baseline_snapshot)
+                print(f"✅ Baseline saved")
+            else:
+                print("❌ Failed to capture baseline snapshot")
+                return
+
+        # Main loop for adding examples
+        while True:
+            result = await self._add_example_interactive(baseline_snapshot)
+            if not result:
+                break
+
+        print("\n✅ Extend mode complete!")
+        print(f"📁 Examples saved in: {self.example_manager.examples_dir}")
+
+    async def _add_example_interactive(self, baseline_snapshot: Dict[str, Any]) -> bool:
+        """Add a single positive or negative example interactively. Returns False to exit."""
+
+        print("\n" + "=" * 60)
+        existing = self.example_manager.get_all_examples()
+        if existing:
+            pos_count = len([e for e in existing if e['type'] == 'positive'])
+            neg_count = len([e for e in existing if e['type'] == 'negative'])
+            print(f"📊 Current examples: {pos_count} positive, {neg_count} negative")
+        print()
+
+        choice = input("Add [P]ositive example, [N]egative example, or [Q]uit? ").strip().lower()
+
+        if choice == 'q':
+            return False
+
+        if choice not in ('p', 'n'):
+            print("Invalid choice. Please enter P, N, or Q.")
+            return True
+
+        is_positive = (choice == 'p')
+        example_type = 'positive' if is_positive else 'negative'
+        expected_result = is_positive
+
+        # Open new tab for this example (keep previous tabs open for regression)
+        print(f"\n🌐 Opening new tab for {example_type} example...")
+        url = self.eval_data['target']['url']
+        try:
+            resp = requests.post(
+                f"{self.api_base}/tabs/open",
+                json={"clientId": self.client_id, "url": url, "background": False},
+                timeout=10
+            )
+            resp.raise_for_status()
+            result = resp.json()
+            example_tab_id = result['tabId']
+            print(f"✅ Tab opened: {example_tab_id}")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Failed to open tab: {e}")
+            return True
+
+        await asyncio.sleep(3)  # Wait for page load
+
+        # Let user setup the page state
+        print(f"\n👉 Setup the page for a {'POSITIVE' if is_positive else 'NEGATIVE'} example:")
+        if is_positive:
+            print("   This state SHOULD pass verification (verify.js should return TRUE)")
+        else:
+            print("   This state should FAIL verification (verify.js should return FALSE)")
+        print()
+        input("Press Enter when the page is in the desired state...")
+
+        # Test current verify.js
+        verify_js_path = os.path.join(self.workdir, 'verify.js')
+        with open(verify_js_path, 'r') as f:
+            js_code = f.read()
+
+        print(f"\n🧪 Testing current verify.js on this {example_type} example...")
+        actual_result = await self._execute_js_on_tab(js_code, example_tab_id)
+
+        # Capture snapshot for this example
+        current_snapshot = self._capture_dom_snapshot_for_tab(example_tab_id, "EXAMPLE")
+        if current_snapshot:
+            changes = self._compare_snapshots(baseline_snapshot, current_snapshot)
+        else:
+            changes = []
+
+        # Save example regardless of result
+        example_id = self.example_manager.add_example(
+            example_type=example_type,
+            client_id=self.client_id,
+            tab_id=example_tab_id,
+            snapshot=current_snapshot if current_snapshot else {},
+            changes=changes
+        )
+        print(f"💾 Saved example: {example_id}")
+
+        if actual_result == expected_result:
+            print(f"✅ verify.js correctly returned {actual_result} for this {example_type} example")
+            return True
+
+        print(f"❌ verify.js returned {actual_result}, expected {expected_result}")
+        print("🔧 Need to adjust verify.js...")
+
+        # Call Claude Code to adjust verify.js with auto-retry
+        success = await self._adjust_verify_js_with_retry(
+            example_id=example_id,
+            example_type=example_type,
+            expected_result=expected_result,
+            actual_result=actual_result,
+            changes=changes,
+            example_tab_id=example_tab_id
+        )
+
+        if success:
+            print(f"✅ verify.js updated successfully for {example_id}")
+        else:
+            print(f"⚠️  Could not fix verify.js for {example_id} after 3 attempts")
+
+        return True
+
+    async def _adjust_verify_js_with_retry(self, example_id: str, example_type: str,
+                                            expected_result: bool, actual_result: bool,
+                                            changes: List, example_tab_id: str) -> bool:
+        """Adjust verify.js with auto-retry and regression testing. Max 3 attempts."""
+
+        for attempt in range(1, 4):
+            print(f"\n🔄 Adjustment attempt {attempt}/3...")
+
+            # Create Claude Code request
+            self._create_extend_request(
+                example_id=example_id,
+                example_type=example_type,
+                expected_result=expected_result,
+                actual_result=actual_result,
+                changes=changes,
+                example_tab_id=example_tab_id,
+                attempt=attempt
+            )
+
+            # Call Claude Code
+            marker_file = os.path.join(self.workdir, 'CLAUDE_EXTEND_REQUEST.md')
+            verify_js_path = os.path.join(self.workdir, 'verify.js')
+            claude_prompt = f"Read @{marker_file} and adjust verify.js to handle the {example_type} example. Save to {verify_js_path}."
+
+            try:
+                result = subprocess.run(
+                    ['claude', '--dangerously-skip-permissions', claude_prompt],
+                    cwd=os.getcwd(),
+                    capture_output=True,
+                    text=True,
+                    timeout=300
+                )
+                print("Claude Code output:")
+                print("-" * 40)
+                output = result.stdout
+                print(output[:1000] if len(output) > 1000 else output)
+                if len(output) > 1000:
+                    print("... (truncated)")
+                print("-" * 40)
+            except subprocess.TimeoutExpired:
+                print("⏱️  Claude Code subprocess timed out (5 minutes)")
+                continue
+            except FileNotFoundError:
+                print("❌ 'claude' command not found. Is Claude Code installed?")
+                return False
+            except Exception as e:
+                print(f"❌ Claude Code error: {e}")
+                continue
+
+            # Check if verify.js was updated
+            if not os.path.exists(verify_js_path):
+                print(f"⚠️  verify.js not found at {verify_js_path}")
+                continue
+
+            # Load updated verify.js
+            with open(verify_js_path, 'r') as f:
+                updated_js = f.read()
+
+            # Run regression tests on ALL examples
+            print("\n📋 Running regression tests on all examples...")
+            all_passed = await self._run_regression_tests(updated_js)
+
+            if all_passed:
+                return True
+
+            print(f"⚠️  Regression test failed, retrying...")
+
+        return False
+
+    async def _run_regression_tests(self, js_code: str) -> bool:
+        """Test verify.js against all saved examples. Returns True if all pass."""
+
+        examples = self.example_manager.get_all_examples()
+        if not examples:
+            return True
+
+        all_passed = True
+        results = []
+
+        for example in examples:
+            tab_id = example['tab_id']
+            expected = example['expected_result']
+
+            print(f"  Testing {example['id']}...", end=" ")
+            actual = await self._execute_js_on_tab(js_code, tab_id)
+
+            if actual == expected:
+                print(f"✅ (expected {expected}, got {actual})")
+                results.append((example['id'], True))
+            else:
+                print(f"❌ (expected {expected}, got {actual})")
+                results.append((example['id'], False))
+                all_passed = False
+
+        # Summary
+        passed = sum(1 for _, r in results if r)
+        print(f"\n📊 Regression: {passed}/{len(results)} examples passed")
+
+        return all_passed
+
+    async def _execute_js_on_tab(self, js_code: str, tab_id: str) -> Optional[bool]:
+        """Execute JavaScript on specific tab and return boolean result."""
+        try:
+            resp = requests.post(
+                f"{self.api_base}/page/execute",
+                json={
+                    "clientId": self.client_id,
+                    "tabId": tab_id,
+                    "expression": js_code,
+                    "returnByValue": True
+                },
+                timeout=5
+            )
+            resp.raise_for_status()
+            result = resp.json()
+
+            if result.get('exceptionDetails'):
+                print(f"❌ JS Error: {result['exceptionDetails']}")
+                return None
+
+            # Handle different response formats
+            if isinstance(result.get('result'), dict):
+                return result['result'].get('value')
+            return result.get('result')
+        except Exception as e:
+            print(f"❌ Execution error: {e}")
+            return None
+
+    def _capture_dom_snapshot_for_tab(self, tab_id: str, label: str) -> Optional[Dict[str, Any]]:
+        """Capture DOM snapshot for a specific tab."""
+        try:
+            print(f"📸 Capturing DOM snapshot ({label}) for tab {tab_id[:8]}...")
+            resp = requests.post(
+                f"{self.api_base}/page/dom-snapshot",
+                json={
+                    "clientId": self.client_id,
+                    "tabId": tab_id,
+                    "computedStyles": ["display", "visibility", "opacity"],
+                    "includeDOMRects": True
+                },
+                timeout=10
+            )
+            resp.raise_for_status()
+            result = resp.json()
+            snapshot = result.get('snapshot')
+            if snapshot:
+                num_strings = len(snapshot.get('strings', []))
+                print(f"✅ Captured ({num_strings} strings)")
+            return snapshot
+        except Exception as e:
+            print(f"❌ Snapshot error: {e}")
+            return None
+
+    def _compare_snapshots(self, snapshot_before: Dict[str, Any], snapshot_after: Dict[str, Any]) -> List:
+        """Compare two DOM snapshots and return changes."""
+        tree_before = build_enhanced_tree(snapshot_before, filters=DEFAULT_FILTERS)
+        tree_after = build_enhanced_tree(snapshot_after, filters=DEFAULT_FILTERS)
+        if not tree_before or not tree_after:
+            return []
+        return compare_trees(tree_before, tree_after)
+
+    def _create_extend_request(self, example_id: str, example_type: str,
+                               expected_result: bool, actual_result: bool,
+                               changes: List, example_tab_id: str, attempt: int):
+        """Create CLAUDE_EXTEND_REQUEST.md for Claude Code."""
+
+        verify_js_path = os.path.join(self.workdir, 'verify.js')
+        changes_file = os.path.join(self.workdir, 'examples', example_id, 'changes.json')
+        marker_file = os.path.join(self.workdir, 'CLAUDE_EXTEND_REQUEST.md')
+
+        # Get all examples for context
+        all_examples = self.example_manager.get_all_examples()
+
+        # Create example list for the prompt
+        examples_json = json.dumps([
+            {'id': e['id'], 'type': e['type'], 'expected': e['expected_result'], 'tab_id': e['tab_id']}
+            for e in all_examples
+        ], indent=2)
+
+        with open(marker_file, 'w') as f:
+            f.write(f"""# Claude Code: Adjust verify.js (Attempt {attempt}/3)
+
+## Current Issue
+Example `{example_id}` ({example_type}): verify.js returned `{actual_result}` but expected `{expected_result}`.
+
+## Example Type
+{'POSITIVE: This page state SHOULD pass verification (return true)' if example_type == 'positive' else 'NEGATIVE: This page state should FAIL verification (return false)'}
+
+## All Examples to Consider
+{examples_json}
+
+## Your Task
+1. Read current verify.js: {verify_js_path}
+2. Read DOM changes for this example: {changes_file}
+3. Adjust verify.js to:
+   - Return `{expected_result}` for example `{example_id}` (tab: {example_tab_id})
+   - PRESERVE correct behavior for all other examples listed above
+4. Test on ALL tabs listed above using the /page/execute endpoint
+5. Save updated verify.js to: {verify_js_path}
+
+## Test Endpoint
+POST http://localhost:8080/page/execute
+Client ID: {self.client_id}
+
+Example request:
+```bash
+curl -X POST http://localhost:8080/page/execute \\
+  -H "Content-Type: application/json" \\
+  -d '{{"clientId": "{self.client_id}", "tabId": "TAB_ID_HERE", "expression": "YOUR_JS", "returnByValue": true}}'
+```
+
+Expected response for success: {{"result": {{"value": true/false}}}}
+
+## CRITICAL RULES
+1. **NO `return` statements** - The code is evaluated as an expression, not a function. End with a boolean expression.
+2. **Test on ALL example tabs** before saving
+3. **Each example MUST return its expected result**:
+   - positive examples must return `true`
+   - negative examples must return `false`
+
+## Example of CORRECT verify.js format:
+```javascript
+(() => {{
+  // Your validation logic here
+  const element = document.querySelector('...');
+  element && element.someCondition
+}})()
+```
+
+Notice: NO return statement, just a boolean expression at the end.
+""")
+
+        print(f"📝 Created Claude Code request: {marker_file}")
+
 
 async def main():
     """Entry point."""
@@ -1134,6 +1638,7 @@ async def main():
     parser.add_argument('--file', '-f', help='Eval file path (default: <workdir>/task.yaml)')
     parser.add_argument('--workdir', '-w', required=True, help='Working directory for snapshots and validation scripts')
     parser.add_argument('--disable-filtering', action='store_true', help='Disable HTML cleaning (keep raw HTML with scripts/styles)')
+    parser.add_argument('--extend', '-e', action='store_true', help='Force extend mode (requires existing verify.js)')
     args = parser.parse_args()
 
     # Normalize workdir path (strip 'evals/' prefix if present and we're already in evals/)
@@ -1163,7 +1668,16 @@ async def main():
             print(f"📝 Will create new task.yaml: {file_path}")
 
     builder = SnapshotBasedEvalBuilder(file_path=file_path, workdir=workdir, disable_filtering=args.disable_filtering)
-    await builder.run()
+
+    # Check --extend flag
+    if args.extend:
+        verify_js_path = os.path.join(workdir, 'verify.js')
+        if not os.path.exists(verify_js_path):
+            print(f"❌ --extend requires existing verify.js at {verify_js_path}")
+            sys.exit(1)
+        await builder.run_extend()
+    else:
+        await builder.run()
 
 
 if __name__ == '__main__':

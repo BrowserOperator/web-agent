@@ -1,0 +1,30 @@
+id: kayak-001
+name: Test Kayak Flights Search Functionality
+description: Test Kayak Flights search functionality
+enabled: true
+target:
+  url: https://www.kayak.com/flights
+  wait_for: networkidle
+  wait_timeout: 5000
+timeout: 45000
+input:
+  objective: Find one way flight options from Austin to Paris at May 20
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - flights
+  - form
+  - kayak
+  - action
+  - travel
+  priority: high
+  timeout: 45000
+  retries: 2
+  flaky: false
+  owner: devtools-team
+tool: action_agent

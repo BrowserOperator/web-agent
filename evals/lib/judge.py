@@ -7,6 +7,14 @@ from typing import Dict, Any, List
 from openai import OpenAI
 
 
+# Provider default endpoints (OpenAI-compatible APIs)
+PROVIDER_ENDPOINTS = {
+    "cerebras": "https://api.cerebras.ai/v1",
+    "anthropic": "https://api.anthropic.com/v1",
+    "google": "https://generativelanguage.googleapis.com/v1beta/openai"
+}
+
+
 class JudgeResult:
     """Result of judging an evaluation."""
 
@@ -56,7 +64,7 @@ class LLMJudge:
         Initialize LLM judge.
 
         Args:
-            provider: Provider name ("openai", "litellm", etc.)
+            provider: Provider name ("openai", "litellm", "cerebras", "anthropic", "google", etc.)
             model_name: Model name (e.g., "gpt-4", "qwen3:14b-q8_0")
             api_key: API key for the provider
             temperature: Sampling temperature (optional, None uses model default)
@@ -75,6 +83,10 @@ class LLMJudge:
             if not endpoint:
                 raise ValueError("LiteLLM provider requires 'endpoint' parameter")
             self.client = OpenAI(api_key=api_key, base_url=endpoint)
+        elif provider in PROVIDER_ENDPOINTS:
+            # Providers with known OpenAI-compatible endpoints (cerebras, anthropic, google)
+            base_url = endpoint or PROVIDER_ENDPOINTS[provider]
+            self.client = OpenAI(api_key=api_key, base_url=base_url)
         else:
             # Try to initialize with custom endpoint if provided
             if endpoint:
@@ -217,7 +229,7 @@ class VisionJudge:
         Initialize Vision judge.
 
         Args:
-            provider: Provider name ("openai", "litellm", etc.)
+            provider: Provider name ("openai", "litellm", "cerebras", "anthropic", "google", etc.)
             model_name: Model name (e.g., "gpt-4o", "gpt-4-vision-preview", "qwen3:14b-q8_0")
             api_key: API key for the provider
             temperature: Sampling temperature (optional, None uses model default)
@@ -236,6 +248,10 @@ class VisionJudge:
             if not endpoint:
                 raise ValueError("LiteLLM provider requires 'endpoint' parameter")
             self.client = OpenAI(api_key=api_key, base_url=endpoint)
+        elif provider in PROVIDER_ENDPOINTS:
+            # Providers with known OpenAI-compatible endpoints (cerebras, anthropic, google)
+            base_url = endpoint or PROVIDER_ENDPOINTS[provider]
+            self.client = OpenAI(api_key=api_key, base_url=base_url)
         else:
             # Try to initialize with custom endpoint if provided
             if endpoint:
