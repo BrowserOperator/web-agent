@@ -1,14 +1,16 @@
-id: kayak-001
-name: Test Kayak Flights Search Functionality
-description: Find one way flight options from Austin to Paris at May 20
+id: delta-airlines-flights-001
+name: Test Delta Airlines Flights Search Functionality
+description: Find a roundtrip flight from Chicago to Anchorage from April 10 to April
+    20 for 3 adults
 enabled: true
 target:
-  url: https://www.kayak.com/flights
+  url: https://www.delta.com
   wait_for: networkidle
   wait_timeout: 5000
 timeout: 45000
 input:
-  objective: Find one way flight options from Austin to Paris at May 20
+  objective: Find a roundtrip flight from Chicago to Anchorage from April 10 to April
+    20 for 3 adults
 validation:
   type: js-eval
   js-eval:
@@ -21,7 +23,7 @@ metadata:
   - form
   - kayak
   - action
-  - travel
+  - google-flights
   priority: high
   timeout: 45000
   retries: 2
