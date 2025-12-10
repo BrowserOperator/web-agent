@@ -233,13 +233,7 @@ workflows:
   build-and-test:
     jobs:
       - lint
-      - build-devtools:
-          filters:
-            branches:
-              only:
-                - main
-                - /feat\/.*/
-                - /fix\/.*/
+      - build-devtools
       - build-kernel-browser:
           requires:
             - build-devtools
