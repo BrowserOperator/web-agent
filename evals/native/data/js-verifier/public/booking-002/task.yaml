@@ -1,0 +1,31 @@
+id: booking-002
+name: Test Booking Search Functionality
+description: Test Booking search functionality
+enabled: true
+target:
+  url: https://www.booking.com
+  wait_for: networkidle
+  wait_timeout: 5000
+timeout: 45000
+input:
+  objective: Find hotels in Madeira for the dates from June 1 to June 29 for 2 adults
+    and a 10 years old child
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - booking
+  - form
+  - action
+  - travel
+  - accommodation
+  priority: high
+  timeout: 45000
+  retries: 2
+  flaky: false
+  owner: devtools-team
+tool: action_agent

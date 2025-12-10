@@ -1,0 +1,31 @@
+id: expedia-001
+name: Test Expedia Flights Search Functionality
+description: Test Expedia Flights search functionality
+enabled: true
+target:
+  url: https://www.expedia.com
+  wait_for: networkidle
+  wait_timeout: 5000
+timeout: 45000
+input:
+  objective: Find roundtrip flight options from Houston to Madrid from May 15 to June
+    15 for a family of two adults and one child
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - flights
+  - form
+  - expedia
+  - action
+  - travel
+  priority: high
+  timeout: 45000
+  retries: 2
+  flaky: false
+  owner: devtools-team
+tool: action_agent

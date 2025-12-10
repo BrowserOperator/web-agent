@@ -1,0 +1,31 @@
+id: airbnb-001
+name: Test AirBnb Search Functionality
+description: Test AirBnb search functionality
+enabled: true
+target:
+  url: https://www.airbnb.com
+  wait_for: networkidle
+  wait_timeout: 5000
+timeout: 45000
+input:
+  objective: Find apartments for 4 persons in Lagos (Portugal) for the dates August
+    10 to August 17
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - airbnb
+  - form
+  - action
+  - travel
+  - accommodation
+  priority: high
+  timeout: 45000
+  retries: 2
+  flaky: false
+  owner: devtools-team
+tool: action_agent

@@ -1,6 +1,6 @@
 # Evaluation Framework Configuration
 # This configuration is shared across all evaluation runner scripts
-# Configuration for OpenAI models
+# Supports OpenAI, Groq, OpenRouter, and LiteLLM providers
 
 # API endpoint for the evaluation server
 api_endpoint: "http://localhost:8080"
@@ -30,7 +30,7 @@ judge_model:
   provider: "openai"
   model_name: "gpt-5"
   api_key: "${OPENAI_API_KEY}"
-  # temperature: 0.1  # GPT-5 doesn't support custom temperature
+
 
 # Execution settings
 

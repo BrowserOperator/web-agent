@@ -1,0 +1,29 @@
+id: google-flights-001
+name: Test Google Flights Search Functionality
+description: Find one way flight options from New York to Warsaw at July 15
+enabled: true
+target:
+  url: https://www.google.com/travel/flights
+  wait_for: networkidle
+  wait_timeout: 5000
+timeout: 45000
+input:
+  objective: Find one way flight options from New York to Warsaw at July 15
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - flights
+  - form
+  - kayak
+  - action
+  - google-flights
+  priority: high
+  timeout: 45000
+  retries: 2
+  flaky: false
+  owner: devtools-team

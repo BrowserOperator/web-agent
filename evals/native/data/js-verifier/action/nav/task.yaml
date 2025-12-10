@@ -1,0 +1,31 @@
+id: action-agent-nav-001
+name: Navigate via Menu Click
+description: Test clicking navigation menu items to navigate between pages
+enabled: true
+target:
+  url: https://www.wikipedia.org
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 60000
+input:
+  objective: Click on the "English" language link to navigate to English Wikipedia
+  reasoning: Testing navigation through link clicks on a multilingual site
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - navigation
+  - click
+  - wikipedia
+  - multilingual
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

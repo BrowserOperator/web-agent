@@ -1,0 +1,31 @@
+id: action-agent-dropdown-001
+name: Select Dropdown Option
+description: Test selecting an option from a dropdown menu
+enabled: true
+target:
+  url: https://www.w3schools.com/tags/tryit.asp?filename=tryhtml_select
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 45000
+input:
+  objective: Select "Audi" from the car brands dropdown menu
+  reasoning: Testing dropdown selection interaction
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - dropdown
+  - select
+  - form
+  - w3schools
+  priority: high
+  timeout: 45000
+  retries: 2
+  flaky: false
+  owner: devtools-team

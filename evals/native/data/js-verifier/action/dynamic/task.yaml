@@ -1,0 +1,31 @@
+id: action-agent-dynamic-001
+name: Click Dynamic Load Button
+description: Test clicking a button that loads dynamic content
+enabled: true
+target:
+  url: https://the-internet.herokuapp.com/dynamic_loading/1
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 90000
+input:
+  objective: Click the "Start" button to trigger dynamic content loading
+  reasoning: Testing interaction with dynamically loaded content
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - dynamic
+  - click
+  - ajax
+  - loading
+  priority: high
+  timeout: 90000
+  retries: 2
+  flaky: false
+  owner: devtools-team

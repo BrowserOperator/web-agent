@@ -1,0 +1,31 @@
+id: action-agent-upload-001
+name: Upload File via Input
+description: Test clicking file input and uploading a test file
+enabled: true
+target:
+  url: https://the-internet.herokuapp.com/upload
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 60000
+input:
+  objective: Click the file input and upload a test file
+  reasoning: Testing file upload interaction through input elements
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - upload
+  - file
+  - input
+  - form
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

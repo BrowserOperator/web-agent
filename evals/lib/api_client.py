@@ -366,6 +366,95 @@ class APIClient:
                 "error": f"Content retrieval failed: {str(e)}"
             }
 
+    def execute_javascript(
+        self,
+        client_id: str,
+        tab_id: str,
+        expression: str,
+        return_by_value: bool = True,
+        await_promise: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Execute JavaScript in a browser tab via CDP.
+
+        Args:
+            client_id: Base client ID
+            tab_id: Tab ID to execute JavaScript in
+            expression: JavaScript code to execute
+            return_by_value: Whether to return by value (default: True)
+            await_promise: Whether to await promises (default: False)
+
+        Returns:
+            Dict with:
+            - success: bool
+            - result: Any (execution result) if successful
+            - exceptionDetails: Dict (exception details) if any
+            - error: str (if any)
+        """
+        api_url = f"{self.base_url}/page/execute"
+
+        payload = {
+            "clientId": client_id,
+            "tabId": tab_id,
+            "expression": expression,
+            "returnByValue": return_by_value,
+            "awaitPromise": await_promise
+        }
+
+        try:
+            response = requests.post(
+                api_url,
+                json=payload,
+                timeout=self.timeout,
+                headers={"Content-Type": "application/json"}
+            )
+
+            if response.status_code != 200:
+                error_msg = f"JavaScript execution failed with status {response.status_code}"
+                try:
+                    error_details = response.json()
+                    error_msg += f" - {error_details.get('error', str(error_details))}"
+                except:
+                    error_msg += f" - {response.text[:200]}"
+
+                return {
+                    "success": False,
+                    "result": None,
+                    "exceptionDetails": None,
+                    "error": error_msg
+                }
+
+            data = response.json()
+            return {
+                "success": True,
+                "result": data.get("result"),
+                "exceptionDetails": data.get("exceptionDetails"),
+                "error": None
+            }
+
+        except requests.exceptions.HTTPError as e:
+            error_msg = f"HTTP error: {str(e)}"
+            try:
+                error_details = e.response.json()
+                error_msg += f" - {error_details.get('error', str(error_details))}"
+            except:
+                error_msg += f" - {e.response.text[:200]}"
+
+            return {
+                "success": False,
+                "result": None,
+                "exceptionDetails": None,
+                "error": error_msg
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "result": None,
+                "exceptionDetails": None,
+                "error": f"JavaScript execution failed: {str(e)}"
+            }
+
     def check_health(self) -> bool:
         """
         Check if the API server is healthy.

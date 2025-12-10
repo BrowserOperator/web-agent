@@ -1,0 +1,31 @@
+id: action-agent-tableselect-001
+name: Select Table Row
+description: Test clicking to select a table row
+enabled: true
+target:
+  url: https://datatables.net/examples/api/select_single_row.html
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 60000
+input:
+  objective: Click on the first row to select it
+  reasoning: Testing table row selection patterns
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - table
+  - select
+  - row
+  - highlight
+  priority: high
+  timeout: 60000
+  retries: 2
+  flaky: false
+  owner: devtools-team

@@ -16,8 +16,8 @@ FROM --platform=linux/arm64 node:18-alpine AS browser-agent-server-builder
 
 WORKDIR /workspace
 
-# Copy eval server from browser-operator-core submodule
-COPY browser-agent-server/nodejs /workspace/browser-agent-server
+# Copy agent server from browser-operator-core submodule
+COPY submodules/browser-operator-core/agent-server/nodejs /workspace/browser-agent-server
 
 WORKDIR /workspace/browser-agent-server
 

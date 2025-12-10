@@ -1,0 +1,31 @@
+id: google-flights-002
+name: Test Google Flights Search Functionality
+description: 'Find two way business class flight options from New York to Singapore
+    and back for two persons. Timeframe: from June 1 to June 30.'
+enabled: true
+target:
+  url: https://www.google.com/travel/flights
+  wait_for: networkidle
+  wait_timeout: 5000
+timeout: 45000
+input:
+  objective: 'Find two way business class flight options from New York to Singapore
+    and back for two persons. Timeframe: from June 1 to June 30.'
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - flights
+  - form
+  - kayak
+  - action
+  - google-flights
+  priority: high
+  timeout: 45000
+  retries: 2
+  flaky: false
+  owner: devtools-team

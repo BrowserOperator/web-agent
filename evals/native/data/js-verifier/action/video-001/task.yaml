@@ -1,0 +1,34 @@
+id: action-agent-video-001
+name: Control Video Playback
+description: Test starting video playback using click + spacebar
+enabled: true
+target:
+  url: https://www.w3schools.com/html/html5_video.asp
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 90000
+input:
+  objective: Click the video element to focus it, then press spacebar to start playback
+  reasoning: Testing video control using standard keyboard interaction (click to focus
+    + spacebar to play)
+  hint: First click the Video element to focus it, then use keyboard input to press
+    the spacebar key to start playback
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - video
+  - media
+  - controls
+  - playback
+  priority: high
+  timeout: 90000
+  retries: 3
+  flaky: true
+  owner: devtools-team

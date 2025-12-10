@@ -1,0 +1,31 @@
+id: action-agent-ecommerce-001
+name: Add Product to Cart
+description: Test clicking "Add to Cart" button on an e-commerce product page
+enabled: true
+target:
+  url: https://www.homedepot.com/p/Husky-20-Gal-Professional-Duty-Waterproof-Storage-Container-with-Hinged-Lid-in-Red-249160/313799634
+  wait_for: networkidle
+  wait_timeout: 5000
+tool: action_agent
+timeout: 180000
+input:
+  objective: Click the "Add to Cart" button for this storage container
+  reasoning: Testing e-commerce interaction with product cart functionality
+validation:
+  type: js-eval
+  js-eval:
+    script: verify.js
+    expected_result: true
+    timeout: 5000
+metadata:
+  tags:
+  - action
+  - ecommerce
+  - click
+  - homedepot
+  - cart
+  priority: high
+  timeout: 180000
+  retries: 3
+  flaky: true
+  owner: devtools-team
