@@ -29,13 +29,26 @@ jobs:
       - run:
           name: Initialize submodules
           command: |
-            git submodule sync
-            git submodule update --init --recursive submodules/kernel-images
-            git submodule update --init --recursive submodules/browser-operator-core
+            echo "=== .gitmodules content ==="
+            cat .gitmodules
+            echo ""
+            echo "=== Syncing submodule URLs ==="
+            git submodule sync --recursive
+            echo ""
+            echo "=== Submodule status before init ==="
+            git submodule status
+            echo ""
+            echo "=== Initializing submodules ==="
+            git submodule update --init --recursive --force
+            echo ""
+            echo "=== Submodule status after init ==="
+            git submodule status
+            echo ""
             echo "=== Verifying submodule content ==="
             ls -la submodules/
             ls -la submodules/browser-operator-core/ || echo "browser-operator-core is empty!"
             ls -la submodules/browser-operator-core/agent-server/ || echo "agent-server not found!"
+            ls -la submodules/browser-operator-core/front_end/ || echo "front_end not found!"
       - run:
           name: Build DevTools base image
           command: |
