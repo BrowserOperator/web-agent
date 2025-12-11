@@ -170,10 +170,7 @@ jobs:
       - run:
           name: Install Python dependencies
           command: |
-            python3 -m pip install -r evals/requirements.txt
-            echo "=== Verifying installation ==="
-            python3 -m pip list | grep -i openai
-            python3 -c "from openai import OpenAI; print('OpenAI imported successfully')"
+            sudo pip3 install -r evals/requirements.txt
       - run:
           name: Start container
           command: |
