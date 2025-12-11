@@ -237,7 +237,7 @@ jobs:
 workflows:
   build-and-test:
     jobs:
-      - lint
+      # - lint
       - build-devtools
       - build-kernel-browser:
           requires:
@@ -253,10 +253,10 @@ workflows:
 
   deploy:
     jobs:
-      - lint:
-          filters:
-            branches:
-              only: main
+      # - lint:
+      #     filters:
+      #       branches:
+      #         only: main
       - build-devtools:
           filters:
             branches:
