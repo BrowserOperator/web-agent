@@ -170,7 +170,8 @@ jobs:
       - run:
           name: Install Python dependencies
           command: |
-            sudo pip3 install -r evals/requirements.txt
+            python3 -m venv ~/venv
+            ~/venv/bin/pip install -r evals/requirements.txt
       - run:
           name: Start container
           command: |
@@ -201,7 +202,7 @@ jobs:
             cd evals/native
             # Only run if API keys are configured
             if [ -n "${OPENAI_API_KEY:-}" ]; then
-              python3 run.py --path data/test-simple/math-001.yaml --verbose
+              ~/venv/bin/python run.py --path data/test-simple/math-001.yaml --verbose
             else
               echo "Skipping eval test - OPENAI_API_KEY not configured"
             fi
