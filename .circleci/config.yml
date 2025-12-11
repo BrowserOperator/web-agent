@@ -169,7 +169,7 @@ jobs:
       - run:
           name: Install Python dependencies
           command: |
-            pip3 install -r evals/requirements.txt
+            python3 -m pip install -r evals/requirements.txt
       - run:
           name: Start container
           command: |
