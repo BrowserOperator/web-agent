@@ -188,7 +188,7 @@ jobs:
       - run:
           name: Wait for services
           command: |
-            echo "Waiting for services to start..."
+            echo "Waiting for API server..."
             for i in {1..60}; do
               if curl -s http://localhost:8080/status > /dev/null 2>&1; then
                 echo "API server is ready!"
@@ -197,6 +197,23 @@ jobs:
               echo "Attempt $i/60: API not ready yet..."
               sleep 5
             done
+            echo ""
+            echo "Waiting for Chrome DevTools Protocol on port 9222..."
+            for i in {1..30}; do
+              if curl -s http://localhost:9222/json/version > /dev/null 2>&1; then
+                echo "CDP is ready!"
+                curl -s http://localhost:9222/json/version
+                break
+              fi
+              echo "Attempt $i/30: CDP not ready yet..."
+              sleep 5
+            done
+            echo ""
+            echo "=== Checking running processes in container ==="
+            docker exec kernel-browser-extended ps aux | grep -E "chrom|browser" || echo "No chromium processes found"
+            echo ""
+            echo "=== Checking supervisor status ==="
+            docker exec kernel-browser-extended supervisorctl status || true
       - run:
           name: Test API directly
           command: |
