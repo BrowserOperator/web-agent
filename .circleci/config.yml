@@ -198,6 +198,20 @@ jobs:
               sleep 5
             done
       - run:
+          name: Test API directly
+          command: |
+            echo "=== Testing API endpoint directly ==="
+            curl -v -X POST http://localhost:8080/v1/responses \
+              -H "Content-Type: application/json" \
+              -d '{
+                "input": "How much is 5x7? Just respond with the number.",
+                "url": "about:blank",
+                "wait_timeout": 1000,
+                "model": {
+                  "main_model": {"provider": "openai", "model": "gpt-4o-mini", "api_key": "'"${OPENAI_API_KEY}"'"}
+                }
+              }' 2>&1 || true
+      - run:
           name: Run simple eval test
           command: |
             cd evals/native
@@ -210,8 +224,8 @@ jobs:
       - run:
           name: Show container logs
           command: |
-            echo "=== Container logs ==="
-            docker logs kernel-browser-extended --tail 200
+            echo "=== Container logs (last 500 lines) ==="
+            docker logs kernel-browser-extended --tail 500
           when: always
       - run:
           name: Cleanup
