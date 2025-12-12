@@ -4,9 +4,5 @@
 
 [submodule "browser-operator-core"]
 	path = submodules/browser-operator-core
-	url = git@github.com:BrowserOperator/browser-operator-core.git
+	url = https://github.com/BrowserOperator/browser-operator-core.git
 	shallow = true
-
-[submodule "webarena"]
-	path = submodules/webarena
-	url = https://github.com/web-arena-x/webarena.git

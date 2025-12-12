@@ -12,7 +12,7 @@ FROM browser-operator-devtools:latest AS devtools-source
 # ============================================================================
 # Eval Server build stage
 # ============================================================================
-FROM --platform=linux/arm64 node:18-alpine AS browser-agent-server-builder
+FROM node:18-alpine AS browser-agent-server-builder
 
 WORKDIR /workspace
 
@@ -27,7 +27,7 @@ RUN npm install
 # ============================================================================
 # Use kernel-images base with DevTools integration
 # ============================================================================
-FROM --platform=linux/arm64 docker.io/golang:1.25.0 AS server-builder
+FROM docker.io/golang:1.25.0 AS server-builder
 WORKDIR /workspace/server
 
 ARG TARGETOS
@@ -39,11 +39,11 @@ COPY submodules/kernel-images/server/go.sum ./
 RUN go mod download
 
 COPY submodules/kernel-images/server/ .
-RUN GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-arm64} \
+RUN GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
     go build -ldflags="-s -w" -o /out/kernel-images-api ./cmd/api
 
 # webrtc client
-FROM --platform=linux/arm64 node:22-bullseye-slim AS client
+FROM node:22-bullseye-slim AS client
 WORKDIR /src
 COPY submodules/kernel-images/images/chromium-headful/client/package*.json ./
 RUN npm install
@@ -51,7 +51,7 @@ COPY submodules/kernel-images/images/chromium-headful/client/ .
 RUN npm run build
 
 # xorg dependencies
-FROM --platform=linux/arm64 docker.io/ubuntu:22.04 AS xorg-deps
+FROM docker.io/ubuntu:22.04 AS xorg-deps
 WORKDIR /xorg
 ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
@@ -76,11 +76,11 @@ RUN set -eux; \
     make -j$(nproc); \
     make install;
 
-FROM --platform=linux/arm64 ghcr.io/onkernel/neko/base:3.0.6-v1.0.1 AS neko
+FROM ghcr.io/onkernel/neko/base:3.0.6-v1.0.1 AS neko
 # ^--- now has event.SYSTEM_PONG with legacy support to keepalive
 
 # Final stage: kernel-images base + DevTools static files
-FROM --platform=linux/arm64 docker.io/ubuntu:22.04
+FROM docker.io/ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DEBIAN_PRIORITY=high

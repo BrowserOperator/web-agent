@@ -1,0 +1,369 @@
+version: 2.1
+
+orbs:
+  docker: circleci/docker@2.6.0
+
+executors:
+  docker-builder:
+    machine:
+      image: ubuntu-2404:current
+      docker_layer_caching: true
+    resource_class: large
+
+commands:
+  setup-eval-environment:
+    description: "Common setup steps for eval jobs"
+    steps:
+      - checkout
+      - run:
+          name: Initialize submodules
+          command: |
+            git submodule update --init --depth 1 submodules/kernel-images
+            git submodule update --init --depth 1 submodules/browser-operator-core
+      - attach_workspace:
+          at: /tmp/docker-cache
+      - run:
+          name: Load kernel-browser image
+          command: |
+            gunzip -c /tmp/docker-cache/kernel-browser.tar.gz | docker load
+      - run:
+          name: Install Python dependencies
+          command: |
+            python3 -m venv ~/venv
+            ~/venv/bin/pip install -r evals/requirements.txt
+      - run:
+          name: Start container
+          command: |
+            docker run -d \
+              --name kernel-browser-extended \
+              --privileged \
+              -p 8000:8000 \
+              -p 8080:8080 \
+              -p 8081:8081 \
+              -p 8082:8082 \
+              -p 9222:9222 \
+              --shm-size=2g \
+              -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
+              -e "CHROMIUM_FLAGS=--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/ --auto-open-devtools-for-tabs" \
+              kernel-browser:extended
+      - run:
+          name: Wait for services
+          command: |
+            echo "Waiting for API server..."
+            for i in {1..60}; do
+              if ! docker ps | grep -q kernel-browser-extended; then
+                echo "ERROR: Container crashed!"
+                docker logs kernel-browser-extended --tail 500
+                exit 1
+              fi
+              if curl -s http://localhost:8080/status > /dev/null 2>&1; then
+                echo "API server is ready!"
+                break
+              fi
+              echo "Attempt $i/60: API not ready yet..."
+              sleep 5
+            done
+            echo ""
+            echo "Waiting for Chrome DevTools Protocol on port 9222..."
+            for i in {1..30}; do
+              if ! docker ps | grep -q kernel-browser-extended; then
+                echo "ERROR: Container crashed!"
+                docker logs kernel-browser-extended --tail 500
+                exit 1
+              fi
+              if curl -s http://localhost:9222/json/version > /dev/null 2>&1; then
+                echo "CDP is ready!"
+                curl -s http://localhost:9222/json/version
+                break
+              fi
+              echo "Attempt $i/30: CDP not ready yet..."
+              sleep 5
+            done
+            echo ""
+            echo "=== Checking supervisor status ==="
+            docker exec kernel-browser-extended supervisorctl status || true
+
+  teardown-eval-environment:
+    description: "Common teardown steps for eval jobs"
+    steps:
+      - run:
+          name: Show container logs
+          command: |
+            echo "=== Container logs (last 500 lines) ==="
+            docker logs kernel-browser-extended --tail 500
+          when: always
+      - run:
+          name: Cleanup
+          command: docker stop kernel-browser-extended && docker rm kernel-browser-extended
+          when: always
+
+jobs:
+  lint:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - run:
+          name: Install Python linting tools
+          command: pip install ruff
+      - run:
+          name: Lint Python code
+          command: ruff check evals/
+
+  build-devtools:
+    executor: docker-builder
+    steps:
+      - checkout
+      - run:
+          name: Initialize submodules
+          command: |
+            echo "=== Initializing submodules (non-recursive) ==="
+            git submodule sync
+            git submodule update --init --depth 1 submodules/kernel-images
+            git submodule update --init --depth 1 submodules/browser-operator-core
+            echo ""
+            echo "=== Verifying submodule content ==="
+            ls -la submodules/browser-operator-core/
+            ls -la submodules/browser-operator-core/agent-server/
+            ls -la submodules/browser-operator-core/front_end/
+      - run:
+          name: Build DevTools base image
+          command: |
+            docker build \
+              -f Dockerfile.devtools \
+              --target devtools-base \
+              -t browser-operator-devtools:base \
+              .
+          no_output_timeout: 45m
+      - run:
+          name: Build DevTools image
+          command: |
+            docker build \
+              -f Dockerfile.devtools \
+              --target devtools-server \
+              -t browser-operator-devtools:latest \
+              .
+      - run:
+          name: Save DevTools image
+          command: |
+            mkdir -p /tmp/docker-cache
+            docker save browser-operator-devtools:latest | gzip > /tmp/docker-cache/devtools.tar.gz
+      - persist_to_workspace:
+          root: /tmp/docker-cache
+          paths:
+            - devtools.tar.gz
+
+  build-kernel-browser:
+    executor: docker-builder
+    steps:
+      - checkout
+      - run:
+          name: Initialize submodules
+          command: |
+            git submodule update --init --depth 1 submodules/kernel-images
+            git submodule update --init --depth 1 submodules/browser-operator-core
+      - attach_workspace:
+          at: /tmp/docker-cache
+      - run:
+          name: Load DevTools image
+          command: |
+            gunzip -c /tmp/docker-cache/devtools.tar.gz | docker load
+      - run:
+          name: Build kernel-browser extended image
+          command: |
+            docker build \
+              -f deployments/local/Dockerfile \
+              -t kernel-browser:extended \
+              .
+          no_output_timeout: 30m
+      - run:
+          name: Save kernel-browser image
+          command: |
+            docker save kernel-browser:extended | gzip > /tmp/docker-cache/kernel-browser.tar.gz
+      - persist_to_workspace:
+          root: /tmp/docker-cache
+          paths:
+            - kernel-browser.tar.gz
+
+  test-api:
+    executor: docker-builder
+    steps:
+      - checkout
+      - run:
+          name: Initialize submodules
+          command: |
+            git submodule update --init --depth 1 submodules/kernel-images
+            git submodule update --init --depth 1 submodules/browser-operator-core
+      - attach_workspace:
+          at: /tmp/docker-cache
+      - run:
+          name: Load kernel-browser image
+          command: |
+            gunzip -c /tmp/docker-cache/kernel-browser.tar.gz | docker load
+      - run:
+          name: Start container
+          command: |
+            docker run -d \
+              --name kernel-browser-extended \
+              -p 8000:8000 \
+              -p 8080:8080 \
+              -p 8081:8081 \
+              -p 8082:8082 \
+              -p 9222:9222 \
+              --shm-size=2g \
+              kernel-browser:extended
+      - run:
+          name: Wait for services
+          command: |
+            echo "Waiting for services to start..."
+            for i in {1..60}; do
+              if curl -s http://localhost:8080/status > /dev/null 2>&1; then
+                echo "API server is ready!"
+                break
+              fi
+              echo "Attempt $i/60: API not ready yet..."
+              sleep 5
+            done
+      - run:
+          name: Test API endpoint
+          command: |
+            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/status)
+            if [ "$response" != "200" ]; then
+              echo "API health check failed with status: $response"
+              docker logs kernel-browser-extended
+              exit 1
+            fi
+            echo "API health check passed!"
+      - run:
+          name: Cleanup
+          command: docker stop kernel-browser-extended && docker rm kernel-browser-extended
+          when: always
+
+  test-evals:
+    executor: docker-builder
+    steps:
+      - setup-eval-environment
+      - run:
+          name: Test API directly
+          command: |
+            echo "=== Testing API endpoint directly ==="
+            curl -v -X POST http://localhost:8080/v1/responses \
+              -H "Content-Type: application/json" \
+              -d '{
+                "input": "How much is 5x7? Just respond with the number.",
+                "url": "about:blank",
+                "wait_timeout": 30000,
+                "model": {
+                  "main_model": {"provider": "openai", "model": "gpt-4o-mini", "api_key": "'"${OPENAI_API_KEY}"'"}
+                }
+              }' 2>&1 || true
+      - run:
+          name: Run simple eval test
+          command: |
+            cd evals/native
+            if [ -n "${OPENAI_API_KEY:-}" ]; then
+              ~/venv/bin/python run.py --path data/test-simple/math-001.yaml --verbose
+            else
+              echo "Skipping eval test - OPENAI_API_KEY not configured"
+            fi
+      - teardown-eval-environment
+
+  public-evals:
+    executor: docker-builder
+    steps:
+      - setup-eval-environment
+      - run:
+          name: Run public evals (airbnb)
+          no_output_timeout: 30m
+          command: |
+            cd evals/native
+            if [ -n "${OPENAI_API_KEY:-}" ]; then
+              ~/venv/bin/python run.py --path data/js-verifier/public/airbnb --verbose
+            else
+              echo "Skipping eval - OPENAI_API_KEY not configured"
+            fi
+      - teardown-eval-environment
+
+  deploy-cloudrun:
+    executor: docker-builder
+    steps:
+      - checkout
+      - run:
+          name: Initialize submodules
+          command: |
+            git submodule update --init --depth 1 submodules/kernel-images
+            git submodule update --init --depth 1 submodules/browser-operator-core
+      - run:
+          name: Install gcloud CLI
+          command: |
+            curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts
+            echo 'export PATH=$HOME/google-cloud-sdk/bin:$PATH' >> $BASH_ENV
+      - run:
+          name: Authenticate with GCP
+          command: |
+            echo "${GCLOUD_SERVICE_KEY}" | gcloud auth activate-service-account --key-file=-
+            gcloud config set project ${GCLOUD_PROJECT_ID}
+      - run:
+          name: Deploy to Cloud Run
+          command: |
+            gcloud builds submit \
+              --config=deployments/cloudrun/cloudbuild.yaml \
+              --timeout=7200s
+          no_output_timeout: 2h
+
+workflows:
+  build-and-test:
+    jobs:
+      # - lint
+      - build-devtools
+      - build-kernel-browser:
+          requires:
+            - build-devtools
+      - test-api:
+          requires:
+            - build-kernel-browser
+      - test-evals:
+          requires:
+            - build-kernel-browser
+          context:
+            - openai-api  # Context containing OPENAI_API_KEY
+      - approve-public-evals:
+          type: approval
+          requires:
+            - build-kernel-browser
+      - public-evals:
+          requires:
+            - approve-public-evals
+          context:
+            - openai-api
+
+  deploy:
+    jobs:
+      # - lint:
+      #     filters:
+      #       branches:
+      #         only: main
+      - build-devtools:
+          filters:
+            branches:
+              only: main
+      - build-kernel-browser:
+          requires:
+            - build-devtools
+          filters:
+            branches:
+              only: main
+      - test-api:
+          requires:
+            - build-kernel-browser
+          filters:
+            branches:
+              only: main
+      - deploy-cloudrun:
+          requires:
+            - test-api
+          filters:
+            branches:
+              only: main
+          context:
+            - gcloud-credentials  # Context containing GCLOUD_SERVICE_KEY, GCLOUD_PROJECT_ID
