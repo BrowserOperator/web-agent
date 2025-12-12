@@ -10,6 +10,93 @@ executors:
       docker_layer_caching: true
     resource_class: large
 
+commands:
+  setup-eval-environment:
+    description: "Common setup steps for eval jobs"
+    steps:
+      - checkout
+      - run:
+          name: Initialize submodules
+          command: |
+            git submodule update --init --depth 1 submodules/kernel-images
+            git submodule update --init --depth 1 submodules/browser-operator-core
+      - attach_workspace:
+          at: /tmp/docker-cache
+      - run:
+          name: Load kernel-browser image
+          command: |
+            gunzip -c /tmp/docker-cache/kernel-browser.tar.gz | docker load
+      - run:
+          name: Install Python dependencies
+          command: |
+            python3 -m venv ~/venv
+            ~/venv/bin/pip install -r evals/requirements.txt
+      - run:
+          name: Start container
+          command: |
+            docker run -d \
+              --name kernel-browser-extended \
+              --privileged \
+              -p 8000:8000 \
+              -p 8080:8080 \
+              -p 8081:8081 \
+              -p 8082:8082 \
+              -p 9222:9222 \
+              --shm-size=2g \
+              -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
+              -e "CHROMIUM_FLAGS=--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/ --auto-open-devtools-for-tabs" \
+              kernel-browser:extended
+      - run:
+          name: Wait for services
+          command: |
+            echo "Waiting for API server..."
+            for i in {1..60}; do
+              if ! docker ps | grep -q kernel-browser-extended; then
+                echo "ERROR: Container crashed!"
+                docker logs kernel-browser-extended --tail 500
+                exit 1
+              fi
+              if curl -s http://localhost:8080/status > /dev/null 2>&1; then
+                echo "API server is ready!"
+                break
+              fi
+              echo "Attempt $i/60: API not ready yet..."
+              sleep 5
+            done
+            echo ""
+            echo "Waiting for Chrome DevTools Protocol on port 9222..."
+            for i in {1..30}; do
+              if ! docker ps | grep -q kernel-browser-extended; then
+                echo "ERROR: Container crashed!"
+                docker logs kernel-browser-extended --tail 500
+                exit 1
+              fi
+              if curl -s http://localhost:9222/json/version > /dev/null 2>&1; then
+                echo "CDP is ready!"
+                curl -s http://localhost:9222/json/version
+                break
+              fi
+              echo "Attempt $i/30: CDP not ready yet..."
+              sleep 5
+            done
+            echo ""
+            echo "=== Checking supervisor status ==="
+            docker exec kernel-browser-extended supervisorctl status || true
+
+  teardown-eval-environment:
+    description: "Common teardown steps for eval jobs"
+    steps:
+      - run:
+          name: Show container logs
+          command: |
+            echo "=== Container logs (last 500 lines) ==="
+            docker logs kernel-browser-extended --tail 500
+          when: always
+      - run:
+          name: Cleanup
+          command: docker stop kernel-browser-extended && docker rm kernel-browser-extended
+          when: always
+
 jobs:
   lint:
     docker:
@@ -155,86 +242,11 @@ jobs:
   test-evals:
     executor: docker-builder
     steps:
-      - checkout
-      - run:
-          name: Initialize submodules
-          command: |
-            git submodule update --init --depth 1 submodules/kernel-images
-            git submodule update --init --depth 1 submodules/browser-operator-core
-      - attach_workspace:
-          at: /tmp/docker-cache
-      - run:
-          name: Load kernel-browser image
-          command: |
-            gunzip -c /tmp/docker-cache/kernel-browser.tar.gz | docker load
-      - run:
-          name: Install Python dependencies
-          command: |
-            python3 -m venv ~/venv
-            ~/venv/bin/pip install -r evals/requirements.txt
-      - run:
-          name: Start container
-          command: |
-            docker run -d \
-              --name kernel-browser-extended \
-              --privileged \
-              -p 8000:8000 \
-              -p 8080:8080 \
-              -p 8081:8081 \
-              -p 8082:8082 \
-              -p 9222:9222 \
-              --shm-size=2g \
-              -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
-              -e "CHROMIUM_FLAGS=--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/ --auto-open-devtools-for-tabs" \
-              kernel-browser:extended
-      - run:
-          name: Wait for services
-          command: |
-            echo "Waiting for API server..."
-            for i in {1..60}; do
-              # Check if container is still running
-              if ! docker ps | grep -q kernel-browser-extended; then
-                echo "ERROR: Container crashed!"
-                echo "=== Container logs ==="
-                docker logs kernel-browser-extended --tail 500
-                exit 1
-              fi
-              if curl -s http://localhost:8080/status > /dev/null 2>&1; then
-                echo "API server is ready!"
-                break
-              fi
-              echo "Attempt $i/60: API not ready yet..."
-              sleep 5
-            done
-            echo ""
-            echo "Waiting for Chrome DevTools Protocol on port 9222..."
-            for i in {1..30}; do
-              # Check if container is still running
-              if ! docker ps | grep -q kernel-browser-extended; then
-                echo "ERROR: Container crashed!"
-                echo "=== Container logs ==="
-                docker logs kernel-browser-extended --tail 500
-                exit 1
-              fi
-              if curl -s http://localhost:9222/json/version > /dev/null 2>&1; then
-                echo "CDP is ready!"
-                curl -s http://localhost:9222/json/version
-                break
-              fi
-              echo "Attempt $i/30: CDP not ready yet..."
-              sleep 5
-            done
-            echo ""
-            echo "=== Checking running processes in container ==="
-            docker exec kernel-browser-extended ps aux | grep -E "chrom|browser" || echo "No chromium processes found"
-            echo ""
-            echo "=== Checking supervisor status ==="
-            docker exec kernel-browser-extended supervisorctl status || true
+      - setup-eval-environment
       - run:
           name: Test API directly
           command: |
             echo "=== Testing API endpoint directly ==="
-            echo "Increasing wait_timeout to 30000ms..."
             curl -v -X POST http://localhost:8080/v1/responses \
               -H "Content-Type: application/json" \
               -d '{
@@ -245,29 +257,31 @@ jobs:
                   "main_model": {"provider": "openai", "model": "gpt-4o-mini", "api_key": "'"${OPENAI_API_KEY}"'"}
                 }
               }' 2>&1 || true
-            echo ""
-            echo "=== Browser agent server logs ==="
-            docker exec kernel-browser-extended cat /var/log/supervisord/browser-agent-server 2>/dev/null | tail -100 || true
       - run:
           name: Run simple eval test
           command: |
             cd evals/native
-            # Only run if API keys are configured
             if [ -n "${OPENAI_API_KEY:-}" ]; then
               ~/venv/bin/python run.py --path data/test-simple/math-001.yaml --verbose
             else
               echo "Skipping eval test - OPENAI_API_KEY not configured"
             fi
+      - teardown-eval-environment
+
+  public-evals:
+    executor: docker-builder
+    steps:
+      - setup-eval-environment
       - run:
-          name: Show container logs
+          name: Run public evals (airbnb)
           command: |
-            echo "=== Container logs (last 500 lines) ==="
-            docker logs kernel-browser-extended --tail 500
-          when: always
-      - run:
-          name: Cleanup
-          command: docker stop kernel-browser-extended && docker rm kernel-browser-extended
-          when: always
+            cd evals/native
+            if [ -n "${OPENAI_API_KEY:-}" ]; then
+              ~/venv/bin/python run.py --path data/js-verifier/public/airbnb --verbose
+            else
+              echo "Skipping eval - OPENAI_API_KEY not configured"
+            fi
+      - teardown-eval-environment
 
   deploy-cloudrun:
     executor: docker-builder
@@ -312,6 +326,15 @@ workflows:
             - build-kernel-browser
           context:
             - openai-api  # Context containing OPENAI_API_KEY
+      - approve-public-evals:
+          type: approval
+          requires:
+            - build-kernel-browser
+      - public-evals:
+          requires:
+            - approve-public-evals
+          context:
+            - openai-api
 
   deploy:
     jobs:
