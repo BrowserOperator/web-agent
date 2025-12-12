@@ -190,6 +190,13 @@ jobs:
           command: |
             echo "Waiting for API server..."
             for i in {1..60}; do
+              # Check if container is still running
+              if ! docker ps | grep -q kernel-browser-extended; then
+                echo "ERROR: Container crashed!"
+                echo "=== Container logs ==="
+                docker logs kernel-browser-extended --tail 500
+                exit 1
+              fi
               if curl -s http://localhost:8080/status > /dev/null 2>&1; then
                 echo "API server is ready!"
                 break
@@ -200,6 +207,13 @@ jobs:
             echo ""
             echo "Waiting for Chrome DevTools Protocol on port 9222..."
             for i in {1..30}; do
+              # Check if container is still running
+              if ! docker ps | grep -q kernel-browser-extended; then
+                echo "ERROR: Container crashed!"
+                echo "=== Container logs ==="
+                docker logs kernel-browser-extended --tail 500
+                exit 1
+              fi
               if curl -s http://localhost:9222/json/version > /dev/null 2>&1; then
                 echo "CDP is ready!"
                 curl -s http://localhost:9222/json/version
