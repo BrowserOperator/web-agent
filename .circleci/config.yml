@@ -208,11 +208,11 @@ jobs:
               echo "Skipping eval test - OPENAI_API_KEY not configured"
             fi
       - run:
-          name: Show container logs on failure
+          name: Show container logs
           command: |
             echo "=== Container logs ==="
             docker logs kernel-browser-extended --tail 200
-          when: on_fail
+          when: always
       - run:
           name: Cleanup
           command: docker stop kernel-browser-extended && docker rm kernel-browser-extended
