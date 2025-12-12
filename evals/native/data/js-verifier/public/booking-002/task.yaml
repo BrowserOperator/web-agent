@@ -1,6 +1,7 @@
 id: booking-002
 name: Test Booking Search Functionality
-description: Test Booking search functionality
+description: Find hotels in Madeira for the dates from June 1 to June 29 for 2 adults
+    and a 10 years old child
 enabled: true
 target:
   url: https://www.booking.com

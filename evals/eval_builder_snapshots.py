@@ -386,6 +386,30 @@ class SnapshotBasedEvalBuilder:
             print("⏳ Waiting for page to load...")
             await asyncio.sleep(3)
             print("✅ Page loaded")
+            print("   💡 This tab will be used for capturing BEFORE/AFTER snapshots")
+
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Browser error: {e}")
+            print("   Make sure BrowserOperator is running at http://localhost:8080")
+            sys.exit(1)
+
+    async def _get_browser_client(self):
+        """Get browser client without opening a tab. Used in extend mode."""
+        print("\n🔍 Getting browser client...\n")
+
+        try:
+            resp = requests.get(f"{self.api_base}/clients", timeout=5)
+            resp.raise_for_status()
+            clients = resp.json()
+
+            if not clients:
+                print("❌ No browser clients. Is BrowserOperator running?")
+                print("   Start it: cd deployments/local && make compose-up")
+                sys.exit(1)
+
+            self.client_id = clients[0]['id']
+            print(f"✅ Client: {self.client_id}")
+            print("   💡 Tabs will be opened on-demand for each example")
 
         except requests.exceptions.RequestException as e:
             print(f"❌ Browser error: {e}")
@@ -1257,7 +1281,7 @@ return true;"""
         """Extend workflow for refining existing verify.js with additional examples."""
         print("\n🔄 Extend Mode: Refine verify.js with additional examples\n")
         print("This workflow:")
-        print("1. Opens browser to target URL")
+        print("1. Connects to browser (tabs opened per-example)")
         print("2. You add positive/negative examples")
         print("3. Each example tests current verify.js")
         print("4. If wrong, Claude Code adjusts the script")
@@ -1269,25 +1293,51 @@ return true;"""
         # Load existing task.yaml
         await self.step_1_load_file()
 
-        # Open browser to target URL
-        await self.step_3_open_browser()
+        # Get browser client (without opening a tab yet)
+        await self._get_browser_client()
 
         # Capture or load baseline snapshot
         if self.example_manager.index['baseline']:
-            print("📂 Loading existing baseline snapshot...")
+            print("\n📂 Loading existing baseline snapshot...")
             baseline_snapshot = self.example_manager.get_baseline_snapshot()
             print(f"✅ Loaded baseline from previous session")
         else:
-            print("📸 Capturing baseline snapshot (initial page state)...")
-            baseline_snapshot = self._capture_dom_snapshot("BASELINE")
-            if baseline_snapshot:
-                self.example_manager.save_baseline(self.client_id, self.tab_id, baseline_snapshot)
-                print(f"✅ Baseline saved")
-            else:
-                print("❌ Failed to capture baseline snapshot")
+            # Need to open a temporary tab to capture baseline
+            print("\n📸 Capturing baseline snapshot (initial page state)...")
+            print("   Opening temporary tab for baseline capture...")
+            url = self.eval_data['target']['url']
+            try:
+                resp = requests.post(
+                    f"{self.api_base}/tabs/open",
+                    json={"clientId": self.client_id, "url": url, "background": False},
+                    timeout=10
+                )
+                resp.raise_for_status()
+                result = resp.json()
+                baseline_tab_id = result['tabId']
+                print(f"   ✅ Baseline tab opened: {baseline_tab_id}")
+                await asyncio.sleep(3)  # Wait for page load
+
+                # Capture baseline using the temporary tab
+                self.tab_id = baseline_tab_id  # Temporarily set for _capture_dom_snapshot
+                baseline_snapshot = self._capture_dom_snapshot("BASELINE")
+                if baseline_snapshot:
+                    self.example_manager.save_baseline(self.client_id, baseline_tab_id, baseline_snapshot)
+                    print(f"✅ Baseline saved")
+                else:
+                    print("❌ Failed to capture baseline snapshot")
+                    return
+                self.tab_id = None  # Clear since we don't need it
+
+            except requests.exceptions.RequestException as e:
+                print(f"❌ Failed to open baseline tab: {e}")
                 return
 
         # Main loop for adding examples
+        print("\n" + "=" * 60)
+        print("💡 Ready to add examples. Each example opens a fresh tab.")
+        print("=" * 60)
+
         while True:
             result = await self._add_example_interactive(baseline_snapshot)
             if not result:

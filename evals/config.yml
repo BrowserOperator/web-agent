@@ -1,6 +1,6 @@
 # Evaluation Framework Configuration
 # This configuration is shared across all evaluation runner scripts
-# Supports OpenAI, Groq, OpenRouter, and LiteLLM providers
+# Example configuration for Cerebras models
 
 # API endpoint for the evaluation server
 api_endpoint: "http://localhost:8080"
@@ -9,28 +9,27 @@ api_endpoint: "http://localhost:8080"
 # These models are sent to the agent for processing requests
 
 main_model:
-  provider: "openai"
-  model_name: "gpt-5-mini"
-  api_key: "${OPENAI_API_KEY}"
+  provider: "cerebras"
+  model_name: "zai-glm-4.6"
+  api_key: "${CEREBRAS_API_KEY}"
 
 mini_model:
-  provider: "openai"
-  model_name: "gpt-5-nano"
-  api_key: "${OPENAI_API_KEY}"
+  provider: "cerebras"
+  model_name: "zai-glm-4.6"
+  api_key: "${CEREBRAS_API_KEY}"
 
 nano_model:
-  provider: "openai"
-  model_name: "gpt-5-nano"
-  api_key: "${OPENAI_API_KEY}"
+  provider: "cerebras"
+  model_name: "zai-glm-4.6"
+  api_key: "${CEREBRAS_API_KEY}"
 
 # Model configuration for judging evaluation responses
 # This model is used locally to assess the quality of agent responses
 
 judge_model:
-  provider: "openai"
-  model_name: "gpt-5"
-  api_key: "${OPENAI_API_KEY}"
-
+  provider: "cerebras"
+  model_name: "zai-glm-4.6"
+  api_key: "${CEREBRAS_API_KEY}"
 
 # Execution settings
 
