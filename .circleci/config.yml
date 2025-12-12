@@ -183,6 +183,7 @@ jobs:
               -p 8082:8082 \
               -p 9222:9222 \
               --shm-size=2g \
+              -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
               kernel-browser:extended
       - run:
           name: Wait for services
