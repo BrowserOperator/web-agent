@@ -177,6 +177,7 @@ jobs:
           command: |
             docker run -d \
               --name kernel-browser-extended \
+              --privileged \
               -p 8000:8000 \
               -p 8080:8080 \
               -p 8081:8081 \
