@@ -274,6 +274,7 @@ jobs:
       - setup-eval-environment
       - run:
           name: Run public evals (airbnb)
+          no_output_timeout: 30m
           command: |
             cd evals/native
             if [ -n "${OPENAI_API_KEY:-}" ]; then
