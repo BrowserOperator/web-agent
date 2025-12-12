@@ -185,6 +185,7 @@ jobs:
               -p 9222:9222 \
               --shm-size=2g \
               -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
+              -e "CHROMIUM_FLAGS=--user-data-dir=/data/user-data --disable-dev-shm-usage --start-maximized --remote-allow-origins=* --no-sandbox --disable-setuid-sandbox --custom-devtools-frontend=http://localhost:8001/ --auto-open-devtools-for-tabs" \
               kernel-browser:extended
       - run:
           name: Wait for services
@@ -233,16 +234,20 @@ jobs:
           name: Test API directly
           command: |
             echo "=== Testing API endpoint directly ==="
+            echo "Increasing wait_timeout to 30000ms..."
             curl -v -X POST http://localhost:8080/v1/responses \
               -H "Content-Type: application/json" \
               -d '{
                 "input": "How much is 5x7? Just respond with the number.",
                 "url": "about:blank",
-                "wait_timeout": 1000,
+                "wait_timeout": 30000,
                 "model": {
                   "main_model": {"provider": "openai", "model": "gpt-4o-mini", "api_key": "'"${OPENAI_API_KEY}"'"}
                 }
               }' 2>&1 || true
+            echo ""
+            echo "=== Browser agent server logs ==="
+            docker exec kernel-browser-extended cat /var/log/supervisord/browser-agent-server 2>/dev/null | tail -100 || true
       - run:
           name: Run simple eval test
           command: |
