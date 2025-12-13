@@ -96,6 +96,12 @@ commands:
           name: Cleanup
           command: docker stop kernel-browser-extended && docker rm kernel-browser-extended
           when: always
+      - store_artifacts:
+          path: evals/native/reports
+          destination: reports
+      - store_artifacts:
+          path: evals/native/screenshots
+          destination: screenshots
 
 jobs:
   lint:
